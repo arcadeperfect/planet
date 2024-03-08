@@ -1,90 +1,68 @@
-use glam::Vec2;
+use anyhow::Result;
+use bitmap::get_initial_planet_map;
+use glam::{Vec2, Vec3};
+use marching_squares::march_squares;
+use noise::permutationtable::PermutationTable;
+use types::PlanetMap;
+pub use types::PlanetOptions;
 
 pub struct PlumbetPlugin;
 
+mod bitmap;
+mod cellular_automata;
+mod marching_squares;
+mod traits;
+mod types;
 mod utils;
 
-pub struct Planet {
-    pub contours: Vec<Vec<Vec2>>,
+#[derive(Clone, Debug)]
+pub struct PlanetData {
+    pub map: PlanetMap,
+    pub poly_lines: Vec<Vec<Vec2>>,
 }
 
-pub struct PlanetBuilder {}
+impl PlanetData {
+    /// return the poly lines as a flattened list where each pair represents a line segment
+    /// this results in a lot of doubled points, but this is how the shader likes it
+    pub fn get_line_list(&self) -> Vec<Vec3> {
+        flatten_and_zip(&self.poly_lines)
+    }
+}
+
+pub struct PlanetBuilder {
+    hasher: PermutationTable,
+}
 
 impl PlanetBuilder {
-    pub fn new(options: PlanetOptions) -> Planet {
-        Planet {
-            contours: PlanetBuilder::temp_contours(&options),
+    pub fn new(seed: u32) -> Self {
+        PlanetBuilder {
+            hasher: PermutationTable::new(seed),
         }
     }
 
-    fn temp_contours(options: &PlanetOptions) -> Vec<Vec<Vec2>> {
-        let radius = options.radius;
+    pub fn build(&self, options: PlanetOptions) -> Result<PlanetData> {
+        
+        let (mut map, altitude_field) = get_initial_planet_map(&options, &self.hasher)?;
 
-        vec![
-            utils::circle(Vec2::new(0., 0.), radius, options.resolution as usize),
-            utils::circle(Vec2::new(0., 0.), radius / 2., options.resolution as usize),
-        ]
+
+
+        let contours = march_squares(&map)?;
+
+
+        let mut planetMap: PlanetMap = PlanetMap::new(options.resolution as usize);
+        planetMap.planet = map;
+
+        Ok(PlanetData {
+            map: planetMap,
+            poly_lines: contours,
+        })
     }
 }
 
-pub struct PlanetOptions {
-    frequency: f32,
-    amplitude: f32,
-    radius: f32,
-    resolution: u32,
-    weight: f32,
-    thresh: u32,
-    iterations: u32,
-    blur: f32,
-    distance_pow: f32,
-    min_room_size: usize,
-}
-
-impl PlanetOptions {
-    pub fn new(
-        frequency: f32,
-        amplitude: f32,
-        radius: f32,
-        resolution: u32,
-        thresh: u32,
-        iterations: u32,
-        weight: f32,
-        blur: f32,
-        distance_pow: f32,
-        min_size: usize,
-    ) -> Self {
-        Self {
-            frequency,
-            amplitude,
-            radius,
-            resolution: resolution.max(8),
-            thresh,
-            iterations,
-            weight,
-            blur,
-            distance_pow,
-            min_room_size: min_size,
-        }
-    }
-
-    pub fn resolution(&self) -> u32 {
-        self.resolution.max(8)
-    }
-}
-
-impl Default for PlanetOptions {
-    fn default() -> Self {
-        Self {
-            frequency: 1.,
-            amplitude: 1.,
-            radius: 1.,
-            resolution: 100,
-            weight: 50.,
-            thresh: 4,
-            iterations: 10,
-            blur: 1.,
-            distance_pow: 2.,
-            min_room_size: 20,
-        }
-    }
+fn flatten_and_zip(vertices: &Vec<Vec<Vec2>>) -> Vec<Vec3> {
+    vertices
+        .iter()
+        .flat_map(|digit_points| digit_points.windows(2).flat_map(|window| window))
+        .map(|v| Vec3::new(v.x, v.y, 0.0))
+        .collect()
 }
