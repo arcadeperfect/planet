@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use glam::Vec2;
 use image::{ImageBuffer, Rgba};
 
@@ -5,53 +7,68 @@ pub type FloatImage = ImageBuffer<Rgba<f32>, Vec<f32>>;
 // pub type Map16 = Vec<Vec<u16>>;
 // pub type Map8 = Vec<Vec<u8>>;
 
-
 pub type PolyLine = Vec<Vec2>;
 pub type PolyLines = Vec<PolyLine>;
-pub type UMap = Vec<Vec<u16>>;
+pub type UMap8 = Vec<Vec<u8>>;
+pub type UMap16 = Vec<Vec<u16>>;
+pub type IMap16 = Vec<Vec<i16>>;
 pub type FMap = Vec<Vec<f32>>;
-
 
 pub trait Blank {
     fn blank(resolution: usize) -> Self;
 }
 
-impl Blank for UMap {
+impl Blank for UMap8 {
     fn blank(resolution: usize) -> Self {
-        vec![vec![0; resolution]; resolution] 
+        vec![vec![0; resolution]; resolution]
     }
 }
 
-impl Blank for FMap{
+impl Blank for UMap16 {
+    fn blank(resolution: usize) -> Self {
+        vec![vec![0; resolution]; resolution]
+    }
+}
+
+impl Blank for FMap {
     fn blank(resolution: usize) -> Self {
         vec![vec![0.; resolution]; resolution]
     }
 }
 
-
 #[derive(Clone, Debug)]
-pub struct PlanetMap{
+pub struct PlanetMap {
     resolution: usize,
-    pub planet: UMap,
-    pub rooms: UMap,
-    pub edges: UMap,
-    pub altitude: FMap,
-    pub depth: FMap,
-    pub edge_distance_field: FMap,
+    pub main: Option<UMap8>,
+    pub rooms: Option<UMap8>,
+    pub edges: Option<UMap8>,
+    pub altitude: Option<FMap>,
+    pub depth: Option<FMap>,
+    pub edge_distance_field: Option<FMap>,
 }
 
-impl PlanetMap{
-    pub fn new(
-        resolution: usize,
-    ) -> Self {
-        PlanetMap{
+impl PlanetMap {
+    pub fn blank(resolution: usize) -> Self {
+        PlanetMap {
             resolution,
-            planet: vec![vec![0; resolution]; resolution],
-            rooms: vec![vec![0; resolution]; resolution],
-            edges: vec![vec![0; resolution]; resolution],
-            altitude: vec![vec![0.; resolution]; resolution],
-            depth: vec![vec![0.; resolution]; resolution],
-            edge_distance_field: vec![vec![0.; resolution]; resolution],
+            main: Some(vec![vec![0; resolution]; resolution]),
+            rooms: Some(vec![vec![0; resolution]; resolution]),
+            edges: Some(vec![vec![0; resolution]; resolution]),
+            altitude: Some(vec![vec![0.; resolution]; resolution]),
+            depth: Some(vec![vec![0.; resolution]; resolution]),
+            edge_distance_field: Some(vec![vec![0.; resolution]; resolution]),
+        }
+    }
+
+    pub fn empty(resolution: usize) -> Self {
+        PlanetMap {
+            resolution,
+            main: None,
+            rooms: None,
+            edges: None,
+            altitude: None,
+            depth: None,
+            edge_distance_field: None,
         }
     }
 }
@@ -105,11 +122,6 @@ impl PlanetOptions {
     }
 }
 
-
-
-
-
-
 impl Default for PlanetOptions {
     fn default() -> Self {
         Self {
@@ -127,3 +139,4 @@ impl Default for PlanetOptions {
         }
     }
 }
+
