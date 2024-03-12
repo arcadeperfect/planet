@@ -1,9 +1,9 @@
-use std::sync::Arc;
+
 
 use glam::Vec2;
-use image::{ImageBuffer, Rgba};
 
-pub type FloatImage = ImageBuffer<Rgba<f32>, Vec<f32>>;
+
+// pub type FloatImage = ImageBuffer<Rgba<f32>, Vec<f32>>;
 // pub type Map16 = Vec<Vec<u16>>;
 // pub type Map8 = Vec<Vec<u8>>;
 
@@ -99,7 +99,7 @@ impl PlanetOptions {
         iterations: u32,
         weight: f32,
         blur: f32,
-        distance_pow: f32,
+
         min_size: usize,
     ) -> Self {
         Self {

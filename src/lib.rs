@@ -1,27 +1,26 @@
+#![allow(dead_code)]
 use anyhow::Result;
-use bitmap::{apply_blur, get_initial_planet_map, umap_to_rgba};
+use bitmap::{apply_blur, get_initial_planet_map, umap_to_image_buffer};
 use cellular_automata::simulate;
 use glam::{Vec2, Vec3};
 use image::{ImageBuffer, Rgba};
-use marching_squares::{march_squares_rgba, march_squares_umap};
+use marching_squares::march_squares_rgba;
 use noise::permutationtable::PermutationTable;
-use rayon::iter::Map;
+use std::time::Instant;
+use types::PlanetMap;
 pub use types::PlanetOptions;
-use types::{PlanetMap, UMap16, UMap8};
-
-pub struct PlumbetPlugin;
-
 mod bitmap;
 mod cellular_automata;
 mod marching_squares;
 mod traits;
 mod types;
 mod utils;
+// pub struct PlumbetPlugin;
 
 #[derive(Clone, Debug)]
 pub struct PlanetData {
-    pub image: ImageBuffer<Rgba<u8>, Vec<u8>>, 
-    pub planetMap: PlanetMap,
+    pub image: ImageBuffer<Rgba<u8>, Vec<u8>>,
+    pub planet_map: PlanetMap,
     pub poly_lines: Vec<Vec<Vec2>>,
 }
 
@@ -45,35 +44,54 @@ impl PlanetBuilder {
     }
 
     pub fn build(&self, options: PlanetOptions) -> Result<PlanetData> {
-        
-        
-        let (mut map, altitude_field) = get_initial_planet_map(&options, &self.hasher)?;
+        let start = Instant::now();
+
+        let (map, altitude_field) = get_initial_planet_map(&options, &self.hasher)?;
+
+        let duration1 = start.elapsed();
+        let start = Instant::now();
+
         let rooms = simulate(&options, &map, &altitude_field);
 
-        let out = sub(rooms, map);
-             
-        // let out = apply_blur(out, 5.);
+        let duration2 = start.elapsed();
+        let start = Instant::now();
 
-        // println!("{:?}", out);
+        let map = sub(rooms, map);
 
-        let mut image = umap_to_rgba(&out);
+        let duration3 = start.elapsed();
+        let start = Instant::now();
 
-        
+        let mut image = umap_to_image_buffer(&map);
+
+        let duration4 = start.elapsed();
+        let start = Instant::now();
 
         image = apply_blur(&image, options.blur);
-        let c = march_squares_rgba(&image)?;
-        // let contours = march_squares_umap(&out)?;
 
-        let mut planetMap: PlanetMap = PlanetMap::empty(options.resolution as usize);
-        planetMap.main = Some(out);
-        planetMap.altitude = Some(altitude_field);
+        let duration5 = start.elapsed();
+        let start = Instant::now();
+
+        let c = march_squares_rgba(&image)?;
+
+        let duration6 = start.elapsed();
+
+        println!("");
+        println!("initial: \t{}ms", duration1.as_millis());
+        println!("rooms: \t\t{}ms", duration2.as_millis());
+        println!("sub: \t\t{}ms", duration3.as_millis());
+        println!("umap_to_rgba: \t {}ms", duration4.as_millis());
+        println!("blur: \t\t {}ms", duration5.as_millis());
+        println!("march: \t\t {}ms", duration6.as_millis());
+
+        let mut planet_map: PlanetMap = PlanetMap::empty(options.resolution as usize);
+        planet_map.main = Some(map);
+        planet_map.altitude = Some(altitude_field);
 
         Ok(PlanetData {
             image: image,
-            planetMap,
+            planet_map,
             poly_lines: c,
         })
-
     }
 }
 
@@ -85,20 +103,25 @@ fn flatten_and_zip(vertices: &Vec<Vec<Vec2>>) -> Vec<Vec3> {
         .collect()
 }
 
-fn sub(this: Vec<Vec<u8>>, from: Vec<Vec<u8>> ) -> Vec<Vec<u8>> {
-    from.iter().enumerate().map(|(y, row)| {
-        row.iter().enumerate().map(|(x, &val)| {
-            // Invert the second matrix's value (1 becomes 0, 0 becomes 1)
-            let inverted = if this[y][x] == 1 { 0 } else { 1 };
-            // Multiply the first matrix's value by the inverted value
-            val * inverted
-        }).collect()
-    }).collect()
+fn sub(this: Vec<Vec<u8>>, from: Vec<Vec<u8>>) -> Vec<Vec<u8>> {
+    from.iter()
+        .enumerate()
+        .map(|(y, row)| {
+            row.iter()
+                .enumerate()
+                .map(|(x, &val)| {
+                    // Invert the second matrix's value (1 becomes 0, 0 becomes 1)
+                    let inverted = if this[y][x] == 1 { 0 } else { 1 };
+                    // Multiply the first matrix's value by the inverted value
+                    val * inverted
+                })
+                .collect()
+        })
+        .collect()
 }
 
 // pub type UMap8 = Vec<Vec<u8>>;
 // pub type UMap16 = Vec<Vec<u16>>;
-
 
 // trait Subtract<Rhs = Self, Output = Self> {
 //     fn subtract(&self, other: &Rhs) -> Output;

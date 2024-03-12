@@ -1,15 +1,16 @@
-use std::time::Instant;
+
 
 use anyhow::{anyhow, Result};
-use glam::Vec2;
+
 use image::RgbaImage;
 use marching_squares::{Field, Line, Point};
 
 use crate::{
     traits::FromMarchingSquareLine,
-    types::{IMap16, PlanetMap, PolyLines, UMap16},
+    types::{IMap16, PolyLines, UMap16},
 };
 
+#[allow(dead_code)]
 pub fn march_squares_umap(map: &UMap16) -> Result<PolyLines> {
     if map.len() == 0 {
         return Err(anyhow!("0 length data passed to gett"));
@@ -43,7 +44,7 @@ pub fn march_squares_rgba(rgba: &RgbaImage) -> Result<PolyLines> {
     let width = rgba.width() as usize;
     let height = rgba.height() as usize;
     let p_2d: IMap16 = (0..height)
-        .map(|y| p[y * width..(y + 1) * width].to_vec())
+        .map(|y| p[(y) * width..(y + 1) * width].to_vec())
         .collect::<Vec<Vec<i16>>>();
 
     Ok(get_contours(p_2d)?)
@@ -65,7 +66,7 @@ fn get_contours(input: Vec<Vec<i16>>) -> Result<PolyLines> {
         values: &input,
     };
 
-    let instant = Instant::now();
+    
     let mut f: Vec<Line> = field.get_contours(thresh);
 
     if f.len() == 0 {
@@ -75,7 +76,7 @@ fn get_contours(input: Vec<Vec<i16>>) -> Result<PolyLines> {
     for line in &mut f {
         for point in &mut line.points {
             point.x = point.x / w as f32 * 2. - 1.;
-            point.y = point.y / h as f32 * 2. - 1.;
+            point.y = -(point.y / h as f32 * 2. - 1.);
         }
     }
 

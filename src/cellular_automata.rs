@@ -1,43 +1,79 @@
 use rand::{rngs::StdRng, Rng, SeedableRng};
-use crate::{types::{Blank, FMap, UMap16, UMap8}, PlanetOptions};
+use crate::{types::{Blank, FMap, UMap8}, PlanetOptions};
+
+
+use rayon::prelude::*;
 
 
 
-pub fn simulate(options: &PlanetOptions, map: &UMap8, altitude: &FMap) -> UMap8 {
-  
+pub fn simulate(options: &PlanetOptions, _map: &UMap8, altitude: &FMap) -> UMap8 {
     let thresh: u32 = options.thresh;
     let mut map1: UMap8 = random_distribution(options.resolution(), options.weight);
     let mut map2 = UMap8::blank(options.resolution() as usize);
 
     for _i in 1..options.iterations {
-        for yy in 0..options.resolution() {
+        map2.par_iter_mut().enumerate().for_each(|(y, row)| {
             for xx in 0..options.resolution() {
-                
                 let x = xx as usize;
-                let y = yy as usize;
+                let n = get_neighboring_wall_tile_count(&x, &(y as usize), &map1);
 
-                let n = get_neighboring_wall_tile_count(&x, &y, &map1);
-
-                let distance = altitude[x][y];
+                let distance = altitude[y][x as usize];
                 let distance = distance / options.resolution as f32;
-                
+
                 if n > thresh {
-                    map2[y as usize][x as usize] = 1;
+                    row[x as usize] = 1;
                 } else {
                     if distance < 0.9 {
-                        map2[y as usize][x as usize] = 0;
+                        row[x as usize] = 0;
                     } else {
-                        map2[y as usize][x as usize] = 1;
+                        row[x as usize] = 1;
                     }
                 }
             }
-        }
+        });
 
         std::mem::swap(&mut map1, &mut map2);
     }
 
     map1
 }
+
+
+// pub fn simulate(options: &PlanetOptions, _map: &UMap8, altitude: &FMap) -> UMap8 {
+  
+//     let thresh: u32 = options.thresh;
+//     let mut map1: UMap8 = random_distribution(options.resolution(), options.weight);
+//     let mut map2 = UMap8::blank(options.resolution() as usize);
+
+//     for _i in 1..options.iterations {
+//         for yy in 0..options.resolution() {
+//             for xx in 0..options.resolution() {
+                
+//                 let x = xx as usize;
+//                 let y = yy as usize;
+
+//                 let n = get_neighboring_wall_tile_count(&x, &y, &map1);
+
+//                 let distance = altitude[x][y];
+//                 let distance = distance / options.resolution as f32;
+                
+//                 if n > thresh {
+//                     map2[y as usize][x as usize] = 1;
+//                 } else {
+//                     if distance < 0.9 {
+//                         map2[y as usize][x as usize] = 0;
+//                     } else {
+//                         map2[y as usize][x as usize] = 1;
+//                     }
+//                 }
+//             }
+//         }
+
+//         std::mem::swap(&mut map1, &mut map2);
+//     }
+
+//     map1
+// }
 
 
 fn get_neighboring_wall_tile_count(x: &usize, y: &usize, img: &Vec<Vec<u8>>) -> u32 {
