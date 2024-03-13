@@ -1,6 +1,9 @@
 
 
-use glam::Vec2;
+use glam::{Vec2, Vec3};
+use image::{ImageBuffer, Rgba};
+
+use crate::flatten_and_zip;
 
 
 // pub type FloatImage = ImageBuffer<Rgba<f32>, Vec<f32>>;
@@ -33,6 +36,21 @@ impl Blank for UMap16 {
 impl Blank for FMap {
     fn blank(resolution: usize) -> Self {
         vec![vec![0.; resolution]; resolution]
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct PlanetData {
+    pub image: Option<ImageBuffer<Rgba<u8>, Vec<u8>>>,
+    pub planet_map: PlanetMap,
+    pub poly_lines: Vec<Vec<Vec2>>,
+}
+
+impl PlanetData {
+    /// return the poly lines as a flattened list where each pair represents a line segment
+    /// this results in a lot of doubled points, but this is how the shader likes it
+    pub fn get_line_list(&self) -> Vec<Vec3> {
+        flatten_and_zip(&self.poly_lines)
     }
 }
 
@@ -76,16 +94,19 @@ impl PlanetMap {
 #[derive(Clone, Debug)]
 pub struct PlanetOptions {
     pub seed: u32,
-    pub frequency: f32,
-    pub amplitude: f32,
+    // pub frequency: f32,
+    // pub amplitude: f32,
     pub radius: f32,
     pub resolution: u32,
     pub weight: f32,
     pub thresh: u32,
-    pub iterations: u32,
     pub blur: f32,
-    // pub distance_pow: f32,
     pub min_room_size: usize,
+    pub crust_thickness: f32,
+    
+    pub ca_iterations: u32,
+    pub ca_search_radius: u32,
+    
 }
 
 impl PlanetOptions {
@@ -96,24 +117,28 @@ impl PlanetOptions {
         radius: f32,
         resolution: u32,
         thresh: u32,
-        iterations: u32,
         weight: f32,
         blur: f32,
-
-        min_size: usize,
+        crust_thickness: f32,
+        min_room_size: usize,
+        ca_iterations: u32,
+        ca_search_radius: u32,
     ) -> Self {
         Self {
             seed,
-            frequency,
-            amplitude,
+            // frequency,
+            // amplitude,
             radius,
             resolution: resolution.max(8),
             thresh,
-            iterations,
             weight,
             blur,
             // distance_pow,
-            min_room_size: min_size,
+            min_room_size,
+            crust_thickness,
+            ca_search_radius,
+            ca_iterations,
+            
         }
     }
 
@@ -126,17 +151,27 @@ impl Default for PlanetOptions {
     fn default() -> Self {
         Self {
             seed: 1,
-            frequency: 1.,
-            amplitude: 1.,
+            // frequency: 1.,
+            // amplitude: 1.,
             radius: 1.,
             resolution: 100,
             weight: 50.,
             thresh: 4,
-            iterations: 10,
             blur: 1.,
             // distance_pow: 2.,
             min_room_size: 20,
+            crust_thickness: 0.,
+            ca_iterations: 10,
+            ca_search_radius: 10,
         }
     }
 }
 
+#[derive(Clone, Debug, Default)]
+pub struct FractalNoiseOptions {
+    pub frequency: f64,
+    pub lacunarity: f64,
+    pub octaves: usize,
+    pub persistence: f64,
+    pub amplitude: f32,
+}

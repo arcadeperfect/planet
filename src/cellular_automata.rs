@@ -7,27 +7,37 @@ use rayon::prelude::*;
 
 
 pub fn simulate(options: &PlanetOptions, _map: &UMap8, altitude: &FMap) -> UMap8 {
-    let thresh: u32 = options.thresh;
+
+    
+   
+    // let thresh: u32 = options.thresh;
     let mut map1: UMap8 = random_distribution(options.resolution(), options.weight);
     let mut map2 = UMap8::blank(options.resolution() as usize);
 
-    for _i in 1..options.iterations {
+
+
+    let iters = if options.ca_iterations % 2 != 0 {
+        options.ca_iterations + 1
+    } else {
+        options.ca_iterations
+    };
+
+
+    for _i in 1..iters {
         map2.par_iter_mut().enumerate().for_each(|(y, row)| {
             for xx in 0..options.resolution() {
                 let x = xx as usize;
-                let n = get_neighboring_wall_tile_count(&x, &(y as usize), &map1);
+                let n = get_neighboring_wall_tile_count_diagonal(&x, &(y as usize), &map1);
 
-                let distance = altitude[y][x as usize];
-                let distance = distance / options.resolution as f32;
+                // let distance = altitude[y][x as usize];
+                
+                let d = decisinon(&x, &(y as usize), &map1, &options);
 
-                if n > thresh {
-                    row[x as usize] = 1;
+                if d{
+                    row[x] = 0;
                 } else {
-                    if distance < 0.9 {
-                        row[x as usize] = 0;
-                    } else {
-                        row[x as usize] = 1;
-                    }
+                    row[x] = 1;
+                    
                 }
             }
         });
@@ -39,44 +49,118 @@ pub fn simulate(options: &PlanetOptions, _map: &UMap8, altitude: &FMap) -> UMap8
 }
 
 
-// pub fn simulate(options: &PlanetOptions, _map: &UMap8, altitude: &FMap) -> UMap8 {
-  
-//     let thresh: u32 = options.thresh;
-//     let mut map1: UMap8 = random_distribution(options.resolution(), options.weight);
-//     let mut map2 = UMap8::blank(options.resolution() as usize);
+fn decisinon(x: &usize, y: &usize, img: &Vec<Vec<u8>>, options: &PlanetOptions) -> bool {
+    
 
-//     for _i in 1..options.iterations {
-//         for yy in 0..options.resolution() {
-//             for xx in 0..options.resolution() {
-                
-//                 let x = xx as usize;
-//                 let y = yy as usize;
+    // let result = get_neighboring_wall_tile_count_diagonal(x, y, img);
+    // let result = get_neighboring_wall_tile_count_horizontal_and_vertical(x, y, img);
 
-//                 let n = get_neighboring_wall_tile_count(&x, &y, &map1);
-
-//                 let distance = altitude[x][y];
-//                 let distance = distance / options.resolution as f32;
-                
-//                 if n > thresh {
-//                     map2[y as usize][x as usize] = 1;
-//                 } else {
-//                     if distance < 0.9 {
-//                         map2[y as usize][x as usize] = 0;
-//                     } else {
-//                         map2[y as usize][x as usize] = 1;
-//                     }
-//                 }
-//             }
-//         }
-
-//         std::mem::swap(&mut map1, &mut map2);
-//     }
-
-//     map1
-// }
+    // println!("{:?}", options.ca_search_radius);
+    let result = get_neighboring_wall_tile_count_within_radius_circle(x, y, img, options.ca_search_radius);
+    // let result = get_neighboring_wall_tile_count_within_radius_circle(x, y, img, 3);
 
 
-fn get_neighboring_wall_tile_count(x: &usize, y: &usize, img: &Vec<Vec<u8>>) -> u32 {
+
+    result > 7
+
+}
+
+
+fn get_neighboring_wall_tile_count_within_radius_circle(
+    x: &usize,
+    y: &usize,
+    img: &Vec<Vec<u8>>,
+    radius: u32,
+) -> u32 {
+    let width = img.len() as i32;
+    let height = img[0].len() as i32;
+    let mut count: u32 = 0;
+
+    for dy in -(radius as i32)..=(radius as i32) {
+        for dx in -(radius as i32)..=(radius as i32) {
+            let distance_squared = dx * dx + dy * dy;
+            if distance_squared > (radius * radius) as i32 {
+                continue; // Skip pixels outside the circle
+            }
+
+            let nx = *x as i32 + dx;
+            let ny = *y as i32 + dy;
+
+            if nx >= 0 && nx < width && ny >= 0 && ny < height {
+                let neighbor = img[nx as usize][ny as usize];
+                count += neighbor as u32;
+            }
+        }
+    }
+
+    count
+}
+
+
+fn get_neighboring_wall_tile_count_within_radius_square(
+    x: &usize,
+    y: &usize,
+    img: &Vec<Vec<u8>>,
+    radius: u32,
+) -> u32 {
+    let width = img.len() as i32;
+    let height = img[0].len() as i32;
+    let mut count: u32 = 0;
+
+    for dy in -(radius as i32)..=(radius as i32) {
+        for dx in -(radius as i32)..=(radius as i32) {
+            if dx == 0 && dy == 0 {
+                continue; // Skip the center pixel
+            }
+
+            let nx = *x as i32 + dx;
+            let ny = *y as i32 + dy;
+
+            if nx >= 0 && nx < width && ny >= 0 && ny < height {
+                let neighbor = img[nx as usize][ny as usize];
+                count += neighbor as u32;
+            }
+        }
+    }
+
+    count
+}
+
+
+fn get_neighboring_wall_tile_count_horizontal_and_vertical(x: &usize, y: &usize, img: &Vec<Vec<u8>>) -> u32 {
+    let width = img.len() as usize;
+    let height = img[0].len() as usize;
+    let mut count: u32 = 0;
+
+    // Check left neighbor
+    if *x > 0 {
+        let neighbor = img[x - 1][*y];
+        count += neighbor as u32;
+    }
+
+    // Check right neighbor
+    if *x < width - 1 {
+        let neighbor = img[x + 1][*y];
+        count += neighbor as u32;
+    }
+
+    // Check top neighbor
+    if *y > 0 {
+        let neighbor = img[*x][y - 1];
+        count += neighbor as u32;
+    }
+
+    // Check bottom neighbor
+    if *y < height - 1 {
+        let neighbor = img[*x][y + 1];
+        count += neighbor as u32;
+    }
+
+    count
+}
+
+
+fn get_neighboring_wall_tile_count_diagonal(x: &usize, y: &usize, img: &Vec<Vec<u8>>) -> u32 {
     let width = img.len() as u32;
     let height = img[0].len() as u32;
 

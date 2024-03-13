@@ -36,11 +36,47 @@ pub fn ang(a: (u32, u32), b: (u32, u32)) -> f32 {
 }
 
 // return a circle of coords for sampling 2d noise in a repeatable fashion
-pub fn circular_coords(angle_in_radians: f32, scale: f32) -> (f32, f32) {
+pub fn circular_coord(angle_in_radians: f32, scale: f32) -> (f32, f32) {
     let x = angle_in_radians.cos() * scale;
     let y = angle_in_radians.sin() * scale;
     (x, y)
 }
+
+pub struct CircleIterator {
+    angle: f32,
+    step: usize,
+    total_steps: usize,
+    scale: f32,
+    angle_increment: f32,
+}
+
+impl CircleIterator {
+    pub fn new(total_steps: usize, scale: f32) -> Self {
+        CircleIterator {
+            angle: 0.0,
+            step: 0,
+            total_steps,
+            scale,
+            angle_increment: 2.0 * std::f32::consts::PI / total_steps as f32,
+        }
+    }
+}
+
+impl Iterator for CircleIterator {
+    type Item = (f32, f32);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.step >= self.total_steps {
+            None
+        } else {
+            let point = circular_coord(self.angle, self.scale);
+            self.angle += self.angle_increment;
+            self.step += 1;
+            Some(point)
+        }
+    }
+}
+
 
 // return a random distribution of 0 and 1
 pub fn random_distribution(resolution: u32, weight: f32) -> Vec<Vec<u8>> {

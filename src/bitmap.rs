@@ -5,124 +5,94 @@ use anyhow::Result;
 use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator};
 
 use crate::{
-    types::{Blank, FMap, UMap8},
-    utils::{ang, circular_coords, dist, lerp},
-    PlanetOptions,
+    noise_circle::generate_fbm_circle, types::{Blank, FMap, FractalNoiseOptions, UMap8}, utils::{ang, circular_coord, dist, lerp}, PlanetOptions
 };
 
-pub fn get_initial_planet_map(options: &PlanetOptions, hasher: &PermutationTable) -> Result<(UMap8, FMap)> {
+pub fn get_initial_planet_map(options: &PlanetOptions, fractal_options: Vec<&FractalNoiseOptions>,hasher: &PermutationTable) -> Result<(UMap8, FMap, FMap)> {
         
-    let (map, field) = generate_noise_circle(
+    // let (map, field, depth) = generate_noise_circle(
+    //     options.radius,
+    //     options.resolution,
+    //     options.frequency,
+    //     options.amplitude,
+    //     hasher,
+    // )?;
+    
+    // let frequency = (options.frequency * 100.) as f64;
+    // let lacunarity = 1.;
+    // let octaves = 8;
+    // let persistence = 0.5;
+
+    // let foptions = FractalNoiseOptions{
+    //     frequency,
+    //     lacunarity,
+    //     octaves,
+    //     persistence
+    // };
+
+    // let mut optionsVec: Vec<&FractalNoiseOptions> = Vec::new();
+    // optionsVec.push(fractal_options);
+
+;
+
+    let (map, field, depth) = generate_fbm_circle(
         options.radius,
         options.resolution,
-        options.frequency,
-        options.amplitude,
-        hasher,
+        // fractal_options.amplitude * 30.,
+        fractal_options,
+       
     )?;
-    Ok((map, field))
+
+
+    Ok((map, field, depth))
 }
-pub fn generate_noise_circle(
-    radius: f32,
-    resolution: u32,
-    freq: f32,
-    amplitude: f32,
-    hasher: &PermutationTable,
-) -> Result<(UMap8, FMap)> {
-    let radius = resolution as f32 * 0.4 * radius as f32;
-    let center = (resolution / 2, resolution / 2);
-    let f1: f32 = 0.;
-    let f2: f32 = 15.;
-    let f = lerp(f1, f2, freq);
+// pub fn generate_noise_circle(
+//     radius: f32,
+//     resolution: u32,
+//     freq: f32,
+//     amplitude: f32,
+//     hasher: &PermutationTable,
+// ) -> Result<(UMap8, FMap, FMap)> {
 
-    let mut map = UMap8::blank(resolution as usize);
-    let mut field: FMap = FMap::blank(resolution as usize);
+//     let radius = resolution as f32 * 0.4 * radius as f32;
+//     let center = (resolution / 2, resolution / 2);
+//     let f1: f32 = 0.;
+//     let f2: f32 = 15.;
+//     let f = lerp(f1, f2, freq);
 
+//     let mut map = UMap8::blank(resolution as usize);
+//     let mut altitude_field: FMap = FMap::blank(resolution as usize);
+//     let mut depth_field: FMap = FMap::blank(resolution as usize);
 
-    let mut map = map.clone();
+//     for x in 0..resolution {
+//         for y in 0..resolution {
+//             let s = ang((x, y), center);
+//             let (a, b) = circular_coord(s, 1.);
+//             let noise_offset = open_simplex_3d([(a * f) as f64, (b * f) as f64, 0.], hasher)
+//                 as f32
+//                 * 30.0
+//                 * amplitude;
 
-    // Parallel computation of the map and fields
-    let fields: Vec<Vec<f32>> = map
-        .par_iter_mut()
-        .enumerate()
-        .map(|(y, row)| {
-            let mut field = vec![0.0; resolution as usize];
-            for x in 0..resolution {
-                let s = ang((x, y as u32), center);
-                let (a, b) = circular_coords(s, 1.);
-                let noise_offset = open_simplex_3d([(a * f) as f64, (b * f) as f64, 0.], hasher) as f32 * 30.0 * amplitude;
-                let dist = dist(center, (x, y as u32));
-                let _altitude = dist / radius;
-                let _depth = dist / (radius + noise_offset);
-                let _b = (dist < (radius + noise_offset)) as u16;
-                row[x as usize] = (dist < (radius + noise_offset)) as u8;
-                field[x as usize] = dist;
-            }
-            field
-        })
-        .collect();
-
-    // Combine the fields from all threads into a single field vector
-    for (y, row) in fields.iter().enumerate() {
-        for (x, value) in row.iter().enumerate() {
-            field[x][y] = *value;
-        }
-    }
-
-
-    // for x in 0..resolution {
-    //     for y in 0..resolution {
-    //         let s = ang((x, y), center);
-    //         let (a, b) = circular_coords(s, 1.);
-    //         let noise_offset = open_simplex_3d([(a * f) as f64, (b * f) as f64, 0.], hasher)
-    //             as f32
-    //             * 30.0
-    //             * amplitude;
-
-    //         let dist = dist(center, (x, y));
-    //         let _altitude = dist / radius;
-    //         let _depth = dist / (radius + noise_offset);
+//             let dist = dist(center, (x, y));
+//             let altitude = dist / radius;
+//             let depth = dist / (radius + noise_offset);
 
             
 
-    //         let _b = (dist < (radius + noise_offset)) as u16;
+//             let _b = (dist < (radius + noise_offset)) as u16;
 
-            
+//             println!("{} {}", dist, radius);
 
-    //         map[x as usize][y as usize] = (dist < (radius + noise_offset)) as u8;
-    //         field[x as usize][y as usize] = dist;
-    //         // // set the altitude as the distance from the center normailzed to 1 at the nominal radius
-    //         // map.altitude[x as usize][y as usize] = altitude;
+//             map[x as usize][y as usize] = (dist < (radius + noise_offset)) as u8;
+//             altitude_field[x as usize][y as usize] = altitude;
+//             depth_field[x as usize][y as usize] = depth;
+    
+//         }
+//     }
 
-    //         // // set the depth as the distance from the tile to the actual surface after the noise offset
-    //         // map.depth[x as usize][y as usize] = depth;
+//     Ok((map, altitude_field, depth_field))
 
-    //         // /* note we don't bother to set the distance field in the map as that's expensive and it should be done after rooms are generated */
-    //     }
-    // }
-
-    Ok((map, field))
-
-    // for (x, y, pixel) in buffer.enumerate_pixels_mut() {
-    //     let s = ang((x, y), center);
-    //     let (a, b) = circular_coords(s, 1.);
-    //     let n = open_simplex_3d([(a * f) as f64, (b * f) as f64, 0.], &hasher) as f32
-    //         * 30.0
-    //         * amplitude;
-
-    //     let dist = dist(center, (x, y));
-
-    //     let d1 = dist / radius;
-    //     let d2 = dist / (radius + n);
-
-    //     if dist < (radius + n) {
-    //         *pixel = Rgba([1.0, d1, d2, 1.0]);
-    //     } else {
-    //         *pixel = Rgba([0.0, d1, d2, 1.0]);
-    //     }
-    // }
-
-    // ()
-}
+// }
 
 pub fn umap_to_image_buffer(input: &UMap8) -> RgbaImage {
     // Determine the dimensions of the input matrix
@@ -154,8 +124,6 @@ pub fn umap_to_image_buffer(input: &UMap8) -> RgbaImage {
     image
 }
 
-
-
 pub fn apply_blur(image: &RgbaImage, sigma: f32) -> RgbaImage {
 
     if sigma < 0.01{
@@ -181,7 +149,6 @@ pub fn multiply_image_by(image: &RgbaImage, factor: f32) -> RgbaImage {
     }
     new_image
 }
-
 
 pub fn find_brightest_pixel(image: &RgbaImage) -> Rgba<u8> {
     let mut brightest_pixel = Rgba([0, 0, 0, 0]);
