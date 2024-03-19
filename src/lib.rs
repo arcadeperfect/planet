@@ -19,6 +19,7 @@ mod marching_squares;
 mod traits;
 mod utils;
 mod noise_circle;
+mod room;
 pub mod types;
 // pub struct PlumbetPlugin;
 
@@ -49,39 +50,36 @@ impl PlanetBuilder {
     }
 
     pub fn build(&self, options: PlanetOptions, fractal_options: Vec<&FractalNoiseOptions>) -> Result<PlanetData> {
-        let start = Instant::now();
-
-
-
+        // let start = Instant::now();
 
         let (map, altitude_field, depth_field) = get_initial_planet_map(&options, fractal_options, &self.hasher)?;
 
-        let duration1 = start.elapsed();
-        let start = Instant::now();
+        // let duration1 = start.elapsed();
+        // let start = Instant::now();
 
         let rooms = simulate(&options, &map, &depth_field);
 
-        let duration2 = start.elapsed();
-        let start = Instant::now();
+        // let duration2 = start.elapsed();
+        // let start = Instant::now();
 
-        let map = sub(rooms, map, &depth_field, options.crust_thickness);
+        let map = sub(&rooms, &map, &depth_field, 1.-options.crust_thickness);
 
-        let duration3 = start.elapsed();
-        let start = Instant::now();
+        // let duration3 = start.elapsed();
+        // let start = Instant::now();
 
         let mut image = umap_to_image_buffer(&map);
 
-        let duration4 = start.elapsed();
-        let start = Instant::now();
+        // let duration4 = start.elapsed();
+        // let start = Instant::now();
 
         image = apply_blur(&image, options.blur);
 
-        let duration5 = start.elapsed();
-        let start = Instant::now();
+        // let duration5 = start.elapsed();
+        // let start = Instant::now();
 
         let c = march_squares_rgba(&image)?;
 
-        let duration6 = start.elapsed();
+        // let duration6 = start.elapsed();
 
         /*         println!("");
         println!("initial: \t{}ms", duration1.as_millis());
@@ -95,6 +93,7 @@ impl PlanetBuilder {
         planet_map.main = Some(map);
         planet_map.altitude = Some(altitude_field);
         planet_map.depth = Some(depth_field);
+        planet_map.rooms = Some(rooms);
 
         Ok(PlanetData {
             image: Some(image),
@@ -112,7 +111,7 @@ fn flatten_and_zip(vertices: &Vec<Vec<Vec2>>) -> Vec<Vec3> {
         .collect()
 }
 
-fn sub(this: Vec<Vec<u8>>, from: Vec<Vec<u8>>, mask: &FMap, thresh: f32) -> Vec<Vec<u8>> {
+fn sub(this: &Vec<Vec<u8>>, from: &Vec<Vec<u8>>, mask: &FMap, thresh: f32) -> Vec<Vec<u8>> {
     from.iter()
         .enumerate()
         .map(|(y, row)| {

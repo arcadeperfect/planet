@@ -35,3 +35,18 @@ impl FromMarchingSquareLine for Vec<Vec2>{
     }
 }
 
+// pub trait DistSquared {
+//     fn dist_squared(&self, other: &Self) -> f32{
+//         let dx = other.x - self.x;
+//         let dy = other.y - self.y;
+//         (dx*dx + dy*dy)
+//     }
+// }
+
+// pub trait Dist {
+//     fn dist(&self, other: &Self) -> f32 {
+//         let dx = other.x - self.x;
+//         let dy = other.y - self.y;
+//         (dx*dx + dy*dy).sqrt()
+//     }
+// }

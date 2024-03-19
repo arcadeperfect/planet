@@ -40,7 +40,11 @@ pub fn get_initial_planet_map(options: &PlanetOptions, fractal_options: Vec<&Fra
         options.resolution,
         // fractal_options.amplitude * 30.,
         fractal_options,
-       
+        options.mask_frequency,
+        options.mask_z,
+        options.global_amplitude,
+        options.displacement_scale,
+        options.displacement_frequency,
     )?;
 
 

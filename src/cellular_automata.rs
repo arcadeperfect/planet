@@ -8,13 +8,8 @@ use rayon::prelude::*;
 
 pub fn simulate(options: &PlanetOptions, _map: &UMap8, altitude: &FMap) -> UMap8 {
 
-    
-   
-    // let thresh: u32 = options.thresh;
     let mut map1: UMap8 = random_distribution(options.resolution(), options.weight);
     let mut map2 = UMap8::blank(options.resolution() as usize);
-
-
 
     let iters = if options.ca_iterations % 2 != 0 {
         options.ca_iterations + 1
@@ -31,7 +26,7 @@ pub fn simulate(options: &PlanetOptions, _map: &UMap8, altitude: &FMap) -> UMap8
 
                 // let distance = altitude[y][x as usize];
                 
-                let d = decisinon(&x, &(y as usize), &map1, &options);
+                let d = decision(&x, &(y as usize), &map1, &altitude, &options);
 
                 if d{
                     row[x] = 0;
@@ -45,11 +40,20 @@ pub fn simulate(options: &PlanetOptions, _map: &UMap8, altitude: &FMap) -> UMap8
         std::mem::swap(&mut map1, &mut map2);
     }
 
+    if(options.invert_ca){
+        for y in 0..options.resolution() {
+            for x in 0..options.resolution() {
+                map1[y as usize][x as usize] = if map1[y as usize][x as usize] == 0 { 1 } else { 0 };
+            }
+        }
+    }
+
+
     map1
 }
 
 
-fn decisinon(x: &usize, y: &usize, img: &Vec<Vec<u8>>, options: &PlanetOptions) -> bool {
+fn decision(x: &usize, y: &usize, img: &Vec<Vec<u8>>, altitude: &FMap, options: &PlanetOptions) -> bool {
     
 
     // let result = get_neighboring_wall_tile_count_diagonal(x, y, img);
@@ -61,7 +65,14 @@ fn decisinon(x: &usize, y: &usize, img: &Vec<Vec<u8>>, options: &PlanetOptions) 
 
 
 
-    result > 7
+    let a: i32 = (altitude[*y][*x] as i32) * options.ca_misc;
+    
+
+    // dbg!(a);
+
+    let thresh: i32 = options.thresh as i32 + a;
+
+    result > thresh as u32
 
 }
 

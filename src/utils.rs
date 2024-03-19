@@ -1,5 +1,5 @@
 use glam::Vec2;
-use num_traits::Float;
+use num_traits::{AsPrimitive, Float};
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use std::f32::consts::PI;
 
@@ -16,11 +16,11 @@ pub fn circle(center: Vec2, radius: f32, num_segments: usize) -> Vec<Vec2> {
     points
 }
 
-pub fn map64(value: f64, in_low: f64, in_high: f64, to_low: f64, to_high: f64) -> f64 {
+pub fn mapf64(value: f64, in_low: f64, in_high: f64, to_low: f64, to_high: f64) -> f64 {
     (value - in_low) / (in_high - in_low) * (to_high - to_low) + to_low
 }
 
-pub fn map32(value: f32, in_low: f32, in_high: f32, to_low: f32, to_high: f32) -> f32 {
+pub fn mapf32(value: f32, in_low: f32, in_high: f32, to_low: f32, to_high: f32) -> f32 {
     (value - in_low) / (in_high - in_low) * (to_high - to_low) + to_low
 }
 
@@ -93,16 +93,18 @@ pub fn random_distribution(resolution: u32, weight: f32) -> Vec<Vec<u8>> {
     img
 }
 
-pub fn squared_dist(a: (u32, u32), b: (u32, u32)) -> u32 {
-    let dx = b.0 as f32 - a.0 as f32;
-    let dy = b.1 as f32 - a.1 as f32;
+
+
+pub fn dist_squared<T: AsPrimitive<f32>>(a: (T, T), b: (T, T)) -> u32 {
+    let dx = b.0.as_() - a.0.as_();
+    let dy = b.1.as_() - a.1.as_();
 
     (dx * dx + dy * dy) as u32
 }
 
-pub fn dist(a: (u32, u32), b: (u32, u32)) -> f32 {
-    let dx = b.0 as f32 - a.0 as f32;
-    let dy = b.1 as f32 - a.1 as f32;
+pub fn dist<T: AsPrimitive<f32>>(a: (T, T), b: (T, T)) -> f32 {
+    let dx = b.0.as_() - a.0.as_();
+    let dy = b.1.as_() - a.1.as_();
 
     (dx * dx + dy * dy).sqrt()
 }

@@ -1,10 +1,9 @@
-
+use std::ops::Add;
 
 use glam::{Vec2, Vec3};
 use image::{ImageBuffer, Rgba};
 
 use crate::flatten_and_zip;
-
 
 // pub type FloatImage = ImageBuffer<Rgba<f32>, Vec<f32>>;
 // pub type Map16 = Vec<Vec<u16>>;
@@ -94,8 +93,6 @@ impl PlanetMap {
 #[derive(Clone, Debug)]
 pub struct PlanetOptions {
     pub seed: u32,
-    // pub frequency: f32,
-    // pub amplitude: f32,
     pub radius: f32,
     pub resolution: u32,
     pub weight: f32,
@@ -103,10 +100,15 @@ pub struct PlanetOptions {
     pub blur: f32,
     pub min_room_size: usize,
     pub crust_thickness: f32,
-    
     pub ca_iterations: u32,
     pub ca_search_radius: u32,
-    
+    pub ca_misc: i32,
+    pub invert_ca: bool,
+    pub mask_frequency: f64,
+    pub mask_z: f64,
+    pub global_amplitude: f32,
+    pub displacement_scale: f64,
+    pub displacement_frequency: f64
 }
 
 impl PlanetOptions {
@@ -123,22 +125,32 @@ impl PlanetOptions {
         min_room_size: usize,
         ca_iterations: u32,
         ca_search_radius: u32,
+        ca_misc: i32,
+        invert_ca: bool,
+        mask_frequency: f64,
+        mask_z: f64,
+        global_amplitude: f32,
+        displacement_scale: f64,
+        displacement_frequency: f64
     ) -> Self {
         Self {
             seed,
-            // frequency,
-            // amplitude,
             radius,
             resolution: resolution.max(8),
             thresh,
             weight,
             blur,
-            // distance_pow,
             min_room_size,
             crust_thickness,
             ca_search_radius,
             ca_iterations,
-            
+            ca_misc,
+            invert_ca,
+            mask_frequency,
+            mask_z,
+            global_amplitude,
+            displacement_scale,
+            displacement_frequency
         }
     }
 
@@ -151,18 +163,22 @@ impl Default for PlanetOptions {
     fn default() -> Self {
         Self {
             seed: 1,
-            // frequency: 1.,
-            // amplitude: 1.,
             radius: 1.,
             resolution: 100,
             weight: 50.,
             thresh: 4,
             blur: 1.,
-            // distance_pow: 2.,
             min_room_size: 20,
             crust_thickness: 0.,
             ca_iterations: 10,
             ca_search_radius: 10,
+            ca_misc: 0,
+            invert_ca: false,
+            mask_frequency: 0.5,
+            mask_z: 0.0,
+            global_amplitude: 1.0,
+            displacement_scale: 1.0,
+            displacement_frequency: 1.0
         }
     }
 }
@@ -175,3 +191,67 @@ pub struct FractalNoiseOptions {
     pub persistence: f64,
     pub amplitude: f32,
 }
+
+#[derive(Clone, Copy, Default, Debug, PartialEq, Eq, Hash)]
+pub struct Coord {
+    pub x: usize,
+    pub y: usize,
+}
+impl Coord {
+    fn default() -> Coord {
+        Coord { x: 0, y: 0 }
+    }
+
+    fn into_world_vec(self, r: &u32) -> Vec2 {
+        Vec2::new(
+            self.x as f32 / *r as f32 * 2.0 - 1.0,
+            self.y as f32 / *r as f32 * 2.0 - 1.0,
+        )
+    }
+
+    fn into_vec2(self) -> Vec2 {
+        Vec2::new(self.x as f32, self.y as f32)
+    }
+}
+
+impl Add<(usize, usize)> for Coord {
+    type Output = Coord;
+    fn add(self, other: (usize, usize)) -> Self::Output {
+        Coord {
+            x: self.x + other.0,
+            y: self.y + other.1,
+        }
+    }
+}
+
+impl Add<(i32, i32)> for Coord {
+    type Output = Coord;
+    fn add(self, other: (i32, i32)) -> Self::Output {
+        let mut new_x: i32 = self.x as i32 + other.0;
+        let mut new_y: i32 = self.y as i32 + other.1;
+
+        new_x = new_x.max(0);
+        new_y = new_y.max(0);
+
+        Coord {
+            x: new_x as usize,
+            y: new_y as usize,
+        }
+    }
+}
+
+// impl Dist for Coord {
+//     fn dist(&self, other: &Self) -> f32 {
+//         let dx = self.x as i32 - other.x as i32;
+//         let dy = self.y as i32 - other.y as i32;
+//         ((dx * dx + dy * dy) as f32).sqrt()
+//     }
+// }
+
+// impl DistSquared for Coord {
+//     fn dist_squared(&self, other: &Self) -> f32 {
+//         let dx = self.x as i32 - other.x as i32;
+//         let dy = self.y as i32 - other.y as i32;
+//         (dx * dx + dy * dy) as f32
+//     }
+// }
