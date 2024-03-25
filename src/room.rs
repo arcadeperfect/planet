@@ -10,15 +10,17 @@ pub struct Room {
     pub tiles_hash: HashSet<Coord>,
     pub center: Coord,
     pub edge_tile_indexes: Vec<usize>,
-    pub id: Uuid,
+    pub id: u16,
 }
 
 impl Room {
-    pub fn new(tiles: Vec<Coord>) -> Self {
+    pub fn new(tiles: Vec<Coord>, id: u16) -> Self {
+        // println!("new room");
         let tiles_hash = tiles.iter().cloned().collect();
         let edge_tile_indexes = Room::find_edges(&tiles, &tiles_hash);
         let center = Room::calc_center(&tiles, &edge_tile_indexes);
-        let id = uuid::Uuid::new_v4();
+        // let center = Coord { x: 0, y: 0 };
+        
         Room {
             tiles,
             tiles_hash,
@@ -94,7 +96,7 @@ fn get_center(tiles: &[Coord], edges: &[usize]) -> Coord {
         let min_d = edges
             .iter()
             .filter_map(|&i| {
-                let distance = dist_squared(&tile, &tiles[i]);
+                let distance = dist(&tile, &tiles[i]);
                 if distance.is_nan() {
                     None
                 } else {
@@ -108,6 +110,8 @@ fn get_center(tiles: &[Coord], edges: &[usize]) -> Coord {
             center = tile;
         }
     }
+
+    // println!("centerrrr: {:?}", center);
 
     center
 }

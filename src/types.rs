@@ -3,8 +3,8 @@ use std::ops::Add;
 use glam::{Vec2, Vec3};
 use image::{ImageBuffer, Rgba};
 
-use crate::flatten_and_zip;
-
+use crate::{flatten_and_zip, room::Room, TileMap};
+use serde::{Serialize, Deserialize};
 // pub type FloatImage = ImageBuffer<Rgba<f32>, Vec<f32>>;
 // pub type Map16 = Vec<Vec<u16>>;
 // pub type Map8 = Vec<Vec<u8>>;
@@ -43,6 +43,9 @@ pub struct PlanetData {
     pub image: Option<ImageBuffer<Rgba<u8>, Vec<u8>>>,
     pub planet_map: PlanetMap,
     pub poly_lines: Vec<Vec<Vec2>>,
+    pub tile_map: Option<TileMap>,
+    pub rooms: Option<Vec<Room>>
+    // pub rooms_debug_image:Option<ImageBuffer<Rgba<u8>, Vec<u8>>>
 }
 
 impl PlanetData {
@@ -51,13 +54,20 @@ impl PlanetData {
     pub fn get_line_list(&self) -> Vec<Vec3> {
         flatten_and_zip(&self.poly_lines)
     }
+
+    pub fn get_dimension(&self) -> Option<usize> {
+        match &self.image {
+            Some(_) => Some(self.tile_map.as_ref().unwrap().len()),
+            None => None
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
 pub struct PlanetMap {
     resolution: usize,
     pub main: Option<UMap8>,
-    pub rooms: Option<UMap8>,
+    pub rooms_raw: Option<UMap8>,
     pub edges: Option<UMap8>,
     pub altitude: Option<FMap>,
     pub depth: Option<FMap>,
@@ -69,7 +79,7 @@ impl PlanetMap {
         PlanetMap {
             resolution,
             main: Some(vec![vec![0; resolution]; resolution]),
-            rooms: Some(vec![vec![0; resolution]; resolution]),
+            rooms_raw: Some(vec![vec![0; resolution]; resolution]),
             edges: Some(vec![vec![0; resolution]; resolution]),
             altitude: Some(vec![vec![0.; resolution]; resolution]),
             depth: Some(vec![vec![0.; resolution]; resolution]),
@@ -81,7 +91,7 @@ impl PlanetMap {
         PlanetMap {
             resolution,
             main: None,
-            rooms: None,
+            rooms_raw: None,
             edges: None,
             altitude: None,
             depth: None,
@@ -183,7 +193,8 @@ impl Default for PlanetOptions {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct FractalNoiseOptions {
     pub frequency: f64,
     pub lacunarity: f64,
