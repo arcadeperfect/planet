@@ -124,8 +124,6 @@ pub struct PlanetOptions {
 impl PlanetOptions {
     pub fn new(
         seed: u32,
-        frequency: f32,
-        amplitude: f32,
         radius: f32,
         resolution: u32,
         thresh: u32,
@@ -209,20 +207,29 @@ pub struct Coord {
     pub y: usize,
 }
 impl Coord {
-    fn default() -> Coord {
+    pub fn default() -> Coord {
         Coord { x: 0, y: 0 }
     }
 
-    fn into_world_vec(self, r: &u32) -> Vec2 {
+    pub fn into_world_normalized_vec2(self, r: &u32) -> Vec2 {
         Vec2::new(
-            self.x as f32 / *r as f32 * 2.0 - 1.0,
-            self.y as f32 / *r as f32 * 2.0 - 1.0,
+            self.x as f32 / *r as f32 * 2.0 - 1.0 ,
+            -(self.y as f32 / *r as f32 * 2.0 - 1.0),
         )
     }
 
-    fn into_vec2(self) -> Vec2 {
+    pub fn into_vec2(self) -> Vec2 {
         Vec2::new(self.x as f32, self.y as f32)
     }
+
+    pub fn max() -> Coord {
+        Coord { x: usize::MAX, y: usize::MAX }
+    }
+
+    pub fn min() -> Coord {
+        Coord { x: 0, y: 0 }
+    }
+
 }
 
 impl Add<(usize, usize)> for Coord {
@@ -250,19 +257,3 @@ impl Add<(i32, i32)> for Coord {
         }
     }
 }
-
-// impl Dist for Coord {
-//     fn dist(&self, other: &Self) -> f32 {
-//         let dx = self.x as i32 - other.x as i32;
-//         let dy = self.y as i32 - other.y as i32;
-//         ((dx * dx + dy * dy) as f32).sqrt()
-//     }
-// }
-
-// impl DistSquared for Coord {
-//     fn dist_squared(&self, other: &Self) -> f32 {
-//         let dx = self.x as i32 - other.x as i32;
-//         let dy = self.y as i32 - other.y as i32;
-//         (dx * dx + dy * dy) as f32
-//     }
-// }

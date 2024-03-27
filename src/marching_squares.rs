@@ -1,5 +1,3 @@
-
-
 use anyhow::{anyhow, Result};
 
 use image::RgbaImage;
@@ -66,7 +64,6 @@ fn get_contours(input: Vec<Vec<i16>>) -> Result<PolyLines> {
         values: &input,
     };
 
-    
     let mut f: Vec<Line> = field.get_contours(thresh);
 
     if f.len() == 0 {

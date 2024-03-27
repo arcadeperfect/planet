@@ -1,8 +1,5 @@
-use std::collections::HashSet;
-
-use uuid::Uuid;
-
 use crate::types::Coord;
+use std::collections::HashSet;
 
 #[derive(Clone, Default, Debug)]
 pub struct Room {
@@ -15,12 +12,10 @@ pub struct Room {
 
 impl Room {
     pub fn new(tiles: Vec<Coord>, id: u16) -> Self {
-        // println!("new room");
         let tiles_hash = tiles.iter().cloned().collect();
         let edge_tile_indexes = Room::find_edges(&tiles, &tiles_hash);
         let center = Room::calc_center(&tiles, &edge_tile_indexes);
-        // let center = Coord { x: 0, y: 0 };
-        
+
         Room {
             tiles,
             tiles_hash,
@@ -45,6 +40,45 @@ impl Room {
 
     fn calc_center(tiles: &Vec<Coord>, edges: &Vec<usize>) -> Coord {
         get_center(tiles, edges)
+    }
+
+    pub fn get_min_max_coords(&self) -> (Coord, Coord) {
+        let mut max = Coord::min();
+        let mut min = Coord::max();
+        for tile in &self.tiles {
+            max.x = max.x.max(tile.x);
+            max.y = max.y.max(tile.y);
+            min.x = min.x.min(tile.x);
+            min.y = min.y.min(tile.y);
+        }
+        (min, max)
+    }
+
+    pub fn debug_print(&self) {
+        println!("Room id: {}", self.id);
+
+        let (min, max) = self.get_min_max_coords();
+
+        // for c in &self.tiles {
+        //     println!("{} {}", c.x, c.y);
+        // }
+
+        for y in min.y..=max.y {
+            for x in min.x..=max.x {
+                let coord = Coord { x, y };
+
+                if self.center == coord {
+                    print!("X ");
+                } else if self.tiles_hash.contains(&coord) {
+                    print!("o ");
+                } else {
+                    print!(". ");
+                }
+            }
+            println!("");
+        }
+
+        println!("Min: {} {} Max: {} {}", min.x, min.y, max.x, max.y);
     }
 }
 
@@ -88,15 +122,25 @@ fn get_neighbouring_coords_diagonal(c: &Coord) -> Vec<Coord> {
 
 fn get_center(tiles: &[Coord], edges: &[usize]) -> Coord {
     let edges_hash: HashSet<Coord> = edges.iter().map(|&i| tiles[i]).collect();
-
-    let mut center = Coord::default(); // Ensure this has a sensible default
+    let mut center = Coord::default();
     let mut max_min_d = f32::MIN;
+
+    if edges_hash.len() == tiles.len() {
+        let sum = tiles
+            .iter()
+            .fold((0, 0), |acc, coord| (acc.0 + coord.x, acc.1 + coord.y));
+        let count = tiles.len();
+        return Coord {
+            x: sum.0 / count,
+            y: sum.1 / count,
+        };
+    }
 
     for &tile in tiles.iter().filter(|&&t| !edges_hash.contains(&t)) {
         let min_d = edges
             .iter()
             .filter_map(|&i| {
-                let distance = dist(&tile, &tiles[i]);
+                let distance = dist_squared(&tile, &tiles[i]);
                 if distance.is_nan() {
                     None
                 } else {
@@ -108,11 +152,10 @@ fn get_center(tiles: &[Coord], edges: &[usize]) -> Coord {
         if min_d > max_min_d {
             max_min_d = min_d;
             center = tile;
+            // center.x = tile.y;
+            // center.y = tile.x;
         }
     }
-
-    // println!("centerrrr: {:?}", center);
-
     center
 }
 

@@ -77,7 +77,6 @@ impl Iterator for CircleIterator {
     }
 }
 
-
 // return a random distribution of 0 and 1
 pub fn random_distribution(resolution: u32, weight: f32) -> Vec<Vec<u8>> {
     let mut img: Vec<Vec<u8>> = vec![vec![0; resolution as usize]; resolution as usize];
@@ -92,8 +91,6 @@ pub fn random_distribution(resolution: u32, weight: f32) -> Vec<Vec<u8>> {
 
     img
 }
-
-
 
 pub fn dist_squared<T: AsPrimitive<f32>>(a: (T, T), b: (T, T)) -> u32 {
     let dx = b.0.as_() - a.0.as_();

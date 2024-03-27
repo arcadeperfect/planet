@@ -4,15 +4,14 @@ use anyhow::Result;
 use bitmap::{apply_blur, get_initial_planet_map, umap_to_image_buffer};
 use cellular_automata::simulate;
 use glam::{Vec2, Vec3};
-// use tracing::info;
 use marching_squares::march_squares_rgba;
 use noise::permutationtable::PermutationTable;
 use room::Room;
 use std::collections::VecDeque;
 pub use types::PlanetOptions;
-use types::{Coord, FMap, FractalNoiseOptions, PlanetData, PlanetMap, UMap16, UMap8};
+use types::{Coord, FMap, FractalNoiseOptions, PlanetData, PlanetMap, UMap8};
 
-use crate::tile_map::{FromUMap, MapDebug, Tile, TileMap, TileMapDebug};
+use crate::tile_map::{FromUMap, Tile, TileMap};
 
 mod bitmap;
 mod cellular_automata;
@@ -44,39 +43,41 @@ impl PlanetBuilder {
         tracing::info!("##### new planet #####");
 
         let (initial_planet_map, altitude_field, depth_field) =
-            get_initial_planet_map(&options, fractal_options, &self.hasher)?;
+            get_initial_planet_map(&options, fractal_options)?;
 
         let room_map_raw: UMap8 = simulate(&options, &initial_planet_map, &depth_field);
 
         // room_map_raw.debug_print_pretty();
 
-        // let subbed_room_map = sub(&room_map_raw, &map, &depth_field, options.crust_thickness);
-
-        // subbed_room_map.debug_print_pretty();
-
-        // let mut tile_map = TileMap::from_uMap(&subbed_room_map);
-
         let mut tile_map = TileMap::rooms_planet_combiner(&initial_planet_map, &room_map_raw);
+        // tile_map.debug_print();
+        
+        let room_structs = process_rooms(&mut tile_map);
 
-        let rooms = get_rooms(&mut tile_map);
+        
 
+        // room_structs.debug_print();
+        // room_structs.iter().for_each(|room|{room.debug_print()});
         // tile_map.debug_print();
 
-        let map = sub(
+
+        let map_main:UMap8 = sub(
             &room_map_raw,
             &initial_planet_map,
             &depth_field,
             1. - options.crust_thickness,
         );
 
-        let mut image = umap_to_image_buffer(&map);
+        // map_main.debug_print_pretty();
+
+        let mut image = umap_to_image_buffer(&map_main);
 
         image = apply_blur(&image, options.blur);
 
-        let c = march_squares_rgba(&image)?;
+        let polylines = march_squares_rgba(&image)?;
 
         let mut maps: PlanetMap = PlanetMap::empty(options.resolution as usize);
-        maps.main = Some(map);
+        maps.main = Some(map_main);
         maps.altitude = Some(altitude_field);
         maps.depth = Some(depth_field);
         maps.rooms_raw = Some(room_map_raw);
@@ -84,16 +85,15 @@ impl PlanetBuilder {
         Ok(PlanetData {
             image: Some(image),
             planet_map: maps,
-            poly_lines: c,
+            poly_lines: polylines,
             tile_map: Some(tile_map),
-            rooms: Some(rooms)
+            rooms: Some(room_structs),
         })
     }
 }
 
-fn get_rooms(tiles: &mut TileMap) -> Vec<Room> {
+fn process_rooms(tiles: &mut TileMap) -> Vec<Room> {
     let res = tiles.len();
-
     let mut room_counter: u16 = 0;
     let mut rooms: Vec<Room> = Vec::new();
 
@@ -113,31 +113,19 @@ fn get_rooms(tiles: &mut TileMap) -> Vec<Room> {
                 },
                 _ => continue,
             }
-            // if tiles[x][y] != Tile::Space {
-            //     // println!("found space: {:?} {:?}", x, y);
-            //     // continue;
-            // } else {
-            //     // println!("found candidate: {:?} {:?}", x, y);
-            //     match get_room(x, y, tiles, room_counter) {
-            //         Some(room) => {
-            //             tracing::debug!("found room: {:?}", room);
-            //             rooms.push(room);
-            //             room_counter += 1;
-            //         }
-            //         None => {
-            //             tracing::debug!("No room found");
-            //             continue;
-            //         }
-            //     }
-            // }
         }
     }
-
     rooms
 }
 
-fn get_room(x: usize, y: usize, tile_map: &mut TileMap, id: u16, min_room_size: usize) -> Option<Room> {
-    
+fn get_room(
+    x: usize,
+    y: usize,
+    tile_map: &mut TileMap,
+    id: u16,
+    min_room_size: usize,
+) -> Option<Room> {
+
     let res = tile_map.len() as usize;
     let start_tile = tile_map[x][y];
 
@@ -152,7 +140,6 @@ fn get_room(x: usize, y: usize, tile_map: &mut TileMap, id: u16, min_room_size: 
     tile_map[x][y] = Tile::Room(Some(id));
 
     while queue.len() > 0 {
-        
         let tile = queue.pop_front().unwrap();
         results.push(tile);
 
@@ -161,137 +148,32 @@ fn get_room(x: usize, y: usize, tile_map: &mut TileMap, id: u16, min_room_size: 
             y: tile.y,
         };
 
-        for c in get_adjacent_coords(&this_coord, res) {
-      
-            if tile_map[c.x][c.y] != Tile::Room(None) {
+        for adjacent_coord in get_adjacent_coords(&this_coord, res) {
+            if tile_map[adjacent_coord.x][adjacent_coord.y] != Tile::Room(None) {
                 continue;
             }
-            tile_map[c.x][c.y] = Tile::Room(Some(id));
-            queue.push_back(c);
+            tile_map[adjacent_coord.x][adjacent_coord.y] = Tile::Room(Some(id));
+            queue.push_back(adjacent_coord);
         }
     }
 
+    // erase if below min size
     if results.len() < min_room_size {
-        results.iter()
-            .for_each(|c| tile_map[c.x][c.y] = Tile::Wall);
+        results.iter().for_each(|c| tile_map[c.x][c.y] = Tile::Wall);
         return None;
     }
 
     let new_room = Room::new(results, id);
 
-    // println!("center: {:?}", new_room.center);
-
     tile_map[new_room.center.x][new_room.center.y] = Tile::RoomCenter(id);
 
+    for edge_tile_index in &new_room.edge_tile_indexes {
+        let e = new_room.tiles[*edge_tile_index];
+        tile_map[e.x][e.y] = Tile::RoomEdge(id);
+    }
+
     Some(new_room)
-
 }
-
-// fn get_rooms(tiles: &mut TileMap, room_map: &UMap8) -> Vec<Room> {
-
-//     let r = tiles.len();
-//     let r2 = room_map[0].len();
-//     assert!(r == r2);
-//     let mut rooms: Vec<Room> = Vec::new();
-
-//     let mut room_counter: u16 = 0;
-
-//     for x in 0..r {
-//         for y in 0..r {
-//             if tiles[x][y] != Tile::Space {
-//                 // println!("found space: {:?} {:?}", x, y);
-//                 // continue;
-//             } else {
-//                 // println!("found candidate: {:?} {:?}", x, y);
-//                 match get_room(x, y, tiles, room_map, room_counter) {
-//                     Some(room) => {
-//                         tracing::debug!("found room: {:?}", room);
-//                         rooms.push(room);
-//                         room_counter += 1;
-//                     }
-//                     None => {
-//                         tracing::debug!("No room found");
-//                         continue;
-//                     }
-//                 }
-//             }
-//         }
-//     }
-
-//     rooms
-// }
-
-// fn get_room(
-//     x: usize,
-//     y: usize,
-//     tile_map: &mut TileMap,
-//     room_raw_map: &UMap8,
-//     id: u16,
-// ) -> Option<Room> {
-//     // tracing::debug!("getting room -----");
-
-//     println!(" starting on {:?} {:?}", x, y);
-
-//     let res = room_raw_map.len() as usize;
-
-//     let source_tile = tile_map[x][y];
-
-//     if source_tile != Tile::Space {
-//         return None;
-//     }
-
-//     // vec to store this room's tile coords
-//     let mut results: Vec<Coord> = vec![];
-
-//     // type to match to
-//     let tile_type = tile_map[x][y];
-
-//     // queue to run on
-//     let mut queue = VecDeque::new();
-
-//     // init the search queue with one tile
-//     // we can be sure that the source tile is valid bc otherwise we would have returned earlier
-//     queue.push_back(Coord { x, y });
-//     tile_map[x][y] = Tile::Room(Some(id));
-
-//     while queue.len() > 0 {
-//         // pop tile to run search on
-//         // we can be sure it won't panic bc the while loop would have exited
-//         let tile = queue.pop_front().unwrap();
-
-//         // if it's in the queue, we know it's in this room
-//         results.push(tile);
-
-//         let this_coord = Coord {
-//             x: tile.x,
-//             y: tile.y,
-//         };
-
-//         // now we search the neighbours and add them to the queue
-//         // they will get added to results in a subsequent iteration of the loop
-
-//         for c in get_adjacent_coords(&this_coord, res) {
-
-//             // make sure tile has not been assigned to a room already
-//             if tile_map[c.x][c.y] != Tile::Space {
-//                 continue;
-//             }
-
-//             // or is not of the target type
-//             if tile_map[c.x][c.y] != tile_type {
-//                 continue;
-//             }
-
-//             // mark the tile as visited
-//             tile_map[c.x][c.y] = Tile::Room(Some(id));
-
-//             // if we made it this far,
-//             queue.push_back(c);
-//         }
-//     }
-
-//     Some(Room::new(results))
-// }
 
 pub fn get_adjacent_coords(coord: &Coord, max_size: usize) -> Vec<Coord> {
     let mut adjacent_coords = Vec::new();
@@ -370,108 +252,53 @@ fn mult(this: &Vec<Vec<u8>>, from: &Vec<Vec<u8>>) -> Vec<Vec<u8>> {
         .collect()
 }
 
-// impl FromUMap for TileMap {
-//     fn from_uMap16(from: UMap16) -> TileMap {
-//         from.iter()
-//             .map(|row| {
-//                 row.iter()
-//                     .map(|entry| if *entry == 1 { Tile::Wall } else { Tile::Space })
-//                     .collect()
-//             })
-//             .collect()
-//     }
+trait DebugPrint {
+    fn debug_print(&self);
+}
 
-//     fn from_uMap8(from: UMap8) -> TileMap {
-//         from.iter()
-//             .map(|row| {
-//                 row.iter()
-//                     .map(|entry| if *entry == 1 { Tile::Wall } else { Tile::Space })
-//                     .collect()
-//             })
-//             .collect()
-//     }
-// }
+impl DebugPrint for Vec<Room> {
+    fn debug_print(&self) {
+        println!("");
+        println!("Debug print room vec --- {:?} rooms \n", self.len());
 
-// impl TileMap {
-//     fn new(resolution: usize) -> Self {
-//         TileMap {
-//             tiles: vec![vec![Tile::Space; resolution]; resolution],
-//         }
-//     }
+        let mut min = Coord::max();
+        let mut max = Coord::min();
 
-//     fn from_uMap(uMap: &Vec<Vec<u8>>) -> Self {
-//         let mut tiles: Vec<Vec<Tile>> = Vec::new();
+        for room in self {
+            let (room_min, room_max) = room.get_min_max_coords();
 
-//         // for (x,i) in uMap.iter().enumerate(){
-//         //     for (y,j) in i.iter().enumerate(){
-//         //         if *j == 1{
+            min.x = min.x.min(room_min.x);
+            min.y = min.y.min(room_min.y);
 
-//         //             tiles[x][y] = Tile::Wall
-//         //         }
-//         //         else{
-//         //             tiles[x][y] = Tile::Space
-//         //         }
-//         //     }
-//         // }
+            max.x = max.x.max(room_max.x);
+            max.y = max.y.max(room_max.y);
+        }
 
-//         let tiles: Vec<Vec<Tile>> = uMap
-//             .iter()
-//             .map(|row| {
-//                 row.iter()
-//                     .map(|&entry| if entry == 1 { Tile::Wall } else { Tile::Space })
-//                     .collect()
-//             })
-//             .collect();
+        println!("Min: {} {} Max: {} {}", min.x, min.y, max.x, max.y);
 
-//         TileMap { tiles }
-//     }
-// }
+        for y in min.y..=max.y{
+            for x in min.x..=max.x {
+                let c = Coord { x, y };
+                if self.iter().any(|r| r.tiles.contains(&c)) {
+                    print!("X ");
+                } else {
+                    print!("  ");
+                }
+            }
+            println!("");
+        }
 
-// pub type UMap8 = Vec<Vec<u8>>;
-// pub type UMap16 = Vec<Vec<u16>>;
-
-// trait Subtract<Rhs = Self, Output = Self> {
-//     fn subtract(&self, other: &Rhs) -> Output;
-// }
-
-// impl Subtract for UMap16 {
-//     fn subtract(&self, other: &Self) -> Self {
-//         self.iter()
-//             .zip(other.iter())
-//             .map(|(v1, v2)| {
-//                 v1.iter()
-//                     .zip(v2.iter())
-//                     .map(|(s, o)| (s - o).max(0))
-//                     .collect()
-//             })
-//             .collect()
-//     }
-// }
-
-// impl Subtract<UMap16, UMap8> for UMap8 {
-//     fn subtract(&self, other: &UMap16) -> UMap8 {
-//         self.iter()
-//             .zip(other.iter())
-//             .map(|(v1, v2)| {
-//                 v1.iter()
-//                     .zip(v2.iter())
-//                     .map(|(s, o)| ((*s as u16) - o).max(0) as u8)
-//                     .collect()
-//             })
-//             .collect()
-//     }
-// }
-
-// impl Subtract<UMap8, UMap16> for UMap16 {
-//     fn subtract(&self, other: &UMap8) -> UMap16 {
-//         self.iter()
-//             .zip(other.iter())
-//             .map(|(v1, v2)| {
-//                 v1.iter()
-//                     .zip(v2.iter())
-//                     .map(|(s, o)| (s - (*o as u16)).max(0))
-//                     .collect()
-//             })
-//             .collect()
-//     }
-// }
+        // for x in min.y..=max.y {
+        //     for y in min.x..=max.x {
+        //         let c = Coord { x, y };
+        //         if self.iter().any(|r| r.tiles.contains(&c)) {
+        //             print!("X ");
+        //         } else {
+        //             print!("  ");
+        //         }
+        //     }
+        //     println!("");
+        // }
+        
+    }
+}

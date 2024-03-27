@@ -1,44 +1,21 @@
+use anyhow::Result;
 use image::{Rgba, RgbaImage};
 use imageproc::filter::gaussian_blur_f32;
-use noise::{core::open_simplex::open_simplex_3d, permutationtable::PermutationTable};
-use anyhow::Result;
-use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator};
+
 
 use crate::{
-    noise_circle::generate_fbm_circle, types::{Blank, FMap, FractalNoiseOptions, UMap8}, utils::{ang, circular_coord, dist, lerp}, PlanetOptions
+    noise_circle::generate_fbm_circle,
+    types::{FMap, FractalNoiseOptions, UMap8},
+    PlanetOptions,
 };
 
-pub fn get_initial_planet_map(options: &PlanetOptions, fractal_options: Vec<&FractalNoiseOptions>,hasher: &PermutationTable) -> Result<(UMap8, FMap, FMap)> {
-        
-    // let (map, field, depth) = generate_noise_circle(
-    //     options.radius,
-    //     options.resolution,
-    //     options.frequency,
-    //     options.amplitude,
-    //     hasher,
-    // )?;
-    
-    // let frequency = (options.frequency * 100.) as f64;
-    // let lacunarity = 1.;
-    // let octaves = 8;
-    // let persistence = 0.5;
-
-    // let foptions = FractalNoiseOptions{
-    //     frequency,
-    //     lacunarity,
-    //     octaves,
-    //     persistence
-    // };
-
-    // let mut optionsVec: Vec<&FractalNoiseOptions> = Vec::new();
-    // optionsVec.push(fractal_options);
-
-;
-
+pub fn get_initial_planet_map(
+    options: &PlanetOptions,
+    fractal_options: Vec<&FractalNoiseOptions>,
+) -> Result<(UMap8, FMap, FMap)> {
     let (map, field, depth) = generate_fbm_circle(
         options.radius,
         options.resolution,
-        // fractal_options.amplitude * 30.,
         fractal_options,
         options.mask_frequency,
         options.mask_z,
@@ -47,58 +24,13 @@ pub fn get_initial_planet_map(options: &PlanetOptions, fractal_options: Vec<&Fra
         options.displacement_frequency,
     )?;
 
-
     Ok((map, field, depth))
 }
-// pub fn generate_noise_circle(
-//     radius: f32,
-//     resolution: u32,
-//     freq: f32,
-//     amplitude: f32,
-//     hasher: &PermutationTable,
-// ) -> Result<(UMap8, FMap, FMap)> {
-
-//     let radius = resolution as f32 * 0.4 * radius as f32;
-//     let center = (resolution / 2, resolution / 2);
-//     let f1: f32 = 0.;
-//     let f2: f32 = 15.;
-//     let f = lerp(f1, f2, freq);
-
-//     let mut map = UMap8::blank(resolution as usize);
-//     let mut altitude_field: FMap = FMap::blank(resolution as usize);
-//     let mut depth_field: FMap = FMap::blank(resolution as usize);
-
-//     for x in 0..resolution {
-//         for y in 0..resolution {
-//             let s = ang((x, y), center);
-//             let (a, b) = circular_coord(s, 1.);
-//             let noise_offset = open_simplex_3d([(a * f) as f64, (b * f) as f64, 0.], hasher)
-//                 as f32
-//                 * 30.0
-//                 * amplitude;
-
-//             let dist = dist(center, (x, y));
-//             let altitude = dist / radius;
-//             let depth = dist / (radius + noise_offset);
-
-            
-
-//             let _b = (dist < (radius + noise_offset)) as u16;
-
-//             println!("{} {}", dist, radius);
-
-//             map[x as usize][y as usize] = (dist < (radius + noise_offset)) as u8;
-//             altitude_field[x as usize][y as usize] = altitude;
-//             depth_field[x as usize][y as usize] = depth;
-    
-//         }
-//     }
-
-//     Ok((map, altitude_field, depth_field))
-
-// }
-
 pub fn umap_to_image_buffer(input: &UMap8) -> RgbaImage {
+
+
+    // input.debug_print();
+
     // Determine the dimensions of the input matrix
     let height = input.len();
     let width = if height > 0 { input[0].len() } else { 0 };
@@ -106,7 +38,7 @@ pub fn umap_to_image_buffer(input: &UMap8) -> RgbaImage {
     // Create a new RgbaImage with the same dimensions
     let mut image = RgbaImage::new(width as u32, height as u32);
 
-    for (y, row) in input.iter().rev().enumerate() {
+    for (y, row) in input.iter().enumerate() {
         for (x, &value) in row.iter().enumerate() {
             // Ensure the value is either 0 or 1
             assert!(value == 0 || value == 1, "Input values must be 0 or 1");
@@ -120,8 +52,7 @@ pub fn umap_to_image_buffer(input: &UMap8) -> RgbaImage {
             // Place the pixel in the corresponding position in the image
             // Note: the y coordinate is calculated as (height - 1 - y) to flip the image vertically
             // image.put_pixel((width -1 - x) as u32, (height - 1 - y) as u32, pixel);
-            image.put_pixel((x) as u32, (y) as u32, pixel);
-
+            image.put_pixel((y) as u32, (x) as u32, pixel);
         }
     }
 
@@ -129,19 +60,15 @@ pub fn umap_to_image_buffer(input: &UMap8) -> RgbaImage {
 }
 
 pub fn apply_blur(image: &RgbaImage, sigma: f32) -> RgbaImage {
-
-    if sigma < 0.01{
+    if sigma < 0.01 {
         return image.clone();
     }
 
     let sigma = sigma.max(0.01);
     let blurred = gaussian_blur_f32(image, sigma);
-
     let brightest = find_brightest_pixel(&blurred);
 
-    multiply_image_by(&blurred, 255./brightest.0[0] as f32)
-
-
+    multiply_image_by(&blurred, 255. / brightest.0[0] as f32)
 }
 
 pub fn multiply_image_by(image: &RgbaImage, factor: f32) -> RgbaImage {

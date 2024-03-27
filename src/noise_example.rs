@@ -550,7 +550,7 @@ fn main() {
 
     let unscaledFinalPlanet = Cache::new(continentsWithRivers);
 
-    let noise_map = PlaneMapBuilder::new(&unscaledFinalPlanet)
+    let _noise_map = PlaneMapBuilder::new(&unscaledFinalPlanet)
         .set_size(1024, 1024)
         .set_x_bounds(-2.0, 2.0)
         .set_y_bounds(-2.0, 2.0)

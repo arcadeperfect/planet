@@ -1,10 +1,10 @@
 use anyhow::Result;
-use noise::{permutationtable::PermutationTable, Fbm, MultiFractal, NoiseFn, Perlin};
-use std::f32::consts::PI;
+use noise::{Fbm, MultiFractal, NoiseFn, Perlin};
+
 
 use crate::{
     types::{Blank, FMap, FractalNoiseOptions, UMap8},
-    utils::{ang, circular_coord, dist, mapf64, CircleIterator},
+    utils::{ang, circular_coord, dist, mapf64},
 };
 
 pub fn generate_fbm_circle(
@@ -17,42 +17,21 @@ pub fn generate_fbm_circle(
     displacement_scale: f64,
     displacement_frequency: f64,
 ) -> Result<(UMap8, FMap, FMap)> {
+    
     let radius = resolution as f32 * 0.4 * radius as f32;
     let center = (resolution / 2, resolution / 2);
-    let f1: f32 = 0.;
-    let f2: f32 = 15.;
-    // let f = lerp(f1, f2, freq);
-
+    
     let mut map = UMap8::blank(resolution as usize);
     let mut altitude_field: FMap = FMap::blank(resolution as usize);
     let mut depth_field: FMap = FMap::blank(resolution as usize);
 
-    // for (i, option) in noise_options.iter().enumerate() {
-    //     println!("----");
-    //     println!("{:?}", option);
-    // }
-
-    let combiner = FbmCombiner::new(
-        noise_options, 
-        0,
-        displacement_scale,
-        displacement_frequency
-    );
-
-    // let fbm = Fbm::<Perlin>::new(0)
-    //     .set_frequency(noise_options[0].frequency)
-    //     .set_persistence(noise_options[0].persistence)
-    //     .set_lacunarity(noise_options[0].lacunarity)
-    //     .set_octaves(noise_options[0].octaves);
+    let noise_combiner = FbmCombiner::new(noise_options, 0, displacement_scale, displacement_frequency);
 
     for x in 0..resolution {
         for y in 0..resolution {
             let s = ang((x, y), center);
             let (a, b) = circular_coord(s, 1.);
-
-            // let amplitude = noise_options[0].amplitude * 0.3 * resolution as f32;
-
-            let noise_offset = combiner.get([a as f64, b as f64], mask_frequency, mask_z) as f32
+            let noise_offset = noise_combiner.get([a as f64, b as f64], mask_frequency, mask_z) as f32
                 * resolution as f32
                 * 0.5
                 * global_amplitude;
@@ -60,8 +39,6 @@ pub fn generate_fbm_circle(
             let dist = dist(center, (x, y));
             let altitude = dist / radius;
             let depth = dist / (radius + noise_offset);
-
-            // println!("{} {}", dist, radius);
 
             map[x as usize][y as usize] = (dist < (radius + noise_offset)) as u8;
             altitude_field[x as usize][y as usize] = altitude;
@@ -161,61 +138,4 @@ impl FbmCombiner {
             }
         }
     }
-
-    // fn get(&self, point: [f64; 2], mask_freq: f64, mask_z: f64) -> f64 {
-    //     match self.fbm_vec.len() {
-    //         0 => 0.0,
-    //         1 => self.fbm_vec[0].get(point) * self.amplitudes[0] as f64,
-    //         _ => {
-
-    //             let interval = 1.0 / self.fbm_vec.len() as f64;
-    //             let mut total_value = 0.0;
-    //             let mask_point = [mask_freq * point[0], mask_freq * point[1] + mask_z];
-    //             let mask_value = self.mask_noise.get(mask_point);
-    //             let mask = mapf64(mask_value, -1.0, 1.0, 0.0, 1.0);
-
-    //             let mut n1 = 0.;
-    //             let mut n2 = 0.;
-    //             let mut n3 = 0.;
-
-    //             for (i, fbm) in self.fbm_vec.iter().enumerate() {
-
-    //                 let mut v: f64 = 0.;
-
-    //                 if(mask > i as f64 * interval && mask <= (i+1) as f64 * interval){
-    //                     let noise = fbm.get(point) * self.amplitudes[i] as f64;
-    //                     v += noise;
-    //                 }
-
-    //                 let noise = fbm.get(point) * self.amplitudes[i] as f64;
-
-    //                 total_value += v;
-
-    //             }
-
-    //             total_value
-
-    //         }
-    //     }
-
-    //     // let mask_value = self.mask_noise.get(point).abs(); // Ensure mask_value is between 0 and 1
-    //     // let intervals = 1.0 / self.options_vec.len() as f64;
-
-    //     // let mut total_value = 0.0;
-    //     // let mut accumulated_intervals = 0.0;
-
-    //     // for (i, fbm) in self.options_vec.iter().enumerate() {
-    //     //     if mask_value <= (i as f64 + 1.0) * intervals {
-    //     //         let local_interval = mask_value - accumulated_intervals;
-    //     //         let weight = local_interval / intervals;
-    //     //         total_value += fbm.get(point) * weight * self.amplitudes[i] as f64;
-    //     //         break;
-    //     //     } else {
-    //     //         total_value += fbm.get(point) * intervals;
-    //     //     }
-    //     //     accumulated_intervals += intervals;
-    //     // }
-
-    //     // total_value
-    // }
 }
