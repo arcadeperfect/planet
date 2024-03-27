@@ -6,7 +6,7 @@ use petgraph::data::Element;
 use crate::{
     room::Room,
     tile_map::TileMap,
-    triangulation::mst,
+    triangulation::{get_triangle_edge_indeces, mst},
     types::{Coord, PlanetMap},
 };
 
@@ -18,6 +18,7 @@ pub struct PlanetData {
     pub tile_map: Option<TileMap>,
     pub rooms: Option<Vec<Room>>,
     pub triangulation: Option<Triangulation>,
+    pub mst: Option<Vec<(Coord, Coord)>>
 }
 
 impl PlanetData {
@@ -41,105 +42,97 @@ impl PlanetData {
         }
     }
 
-    pub fn get_mst(&self) -> Vec<(Coord, Coord)> {
-        if let Some(t) = self.get_triangle_edge_indeces() {
-            let r = self.get_centers().unwrap();
+    // pub fn get_mst(&self) -> Vec<(Coord, Coord)> {
 
-            let m = mst(&t, &r);
+    //     if let Some(tr) = &self.triangulation{
+    //     let t = get_triangle_edge_indeces(&tr);
 
-            let mut out: Vec<(Coord, Coord)> = Vec::new();
+    //         let r = self.get_centers().unwrap();
 
-            for edge in m {
-                match edge {
-                    Element::Edge {
-                        source,
-                        target,
-                        weight: _,
-                    } => {
-                        if let Some(rooms) = self.rooms.as_ref() {
-                            let a = rooms[source].center;
-                            let b = rooms[target].center;
-                            out.push((a, b))
-                        }
-                    }
-                    _ => {} // we are not interested in the Node varient of the Enum
-                }
-            }
+    //         let m = mst(&t, &r);
 
-            out
-        }
-        else{
-            vec![]
-        }
-    }
+    //         let mut out: Vec<(Coord, Coord)> = Vec::new();
 
-    // pub fn get_mst_coords(&self) -> Option<Vec<Coord>> {
-    //     if let Some(i) = self.get_triangle_edge_indeces() {
-    //         let c = self.get_centers().unwrap();
-    //         let j = get_mst_coords(&i, &c);
-    //         Some(j)
-    //     } else {
-    //         None
+    //         for edge in m {
+    //             match edge {
+    //                 Element::Edge {
+    //                     source,
+    //                     target,
+    //                     weight: _,
+    //                 } => {
+    //                     if let Some(rooms) = self.rooms.as_ref() {
+    //                         let a = rooms[source].center;
+    //                         let b = rooms[target].center;
+    //                         out.push((a, b))
+    //                     }
+    //                 }
+    //                 _ => {} // we are not interested in the Node varient of the Enum
+    //             }
+    //         }
+    //         out
+    //     }
+    //     else{
+    //         vec![]
     //     }
     // }
 
-    pub fn get_triangle_tripple_indeces(&self) -> Option<Vec<(usize, usize, usize)>> {
-        if let Some(tr) = &self.triangulation {
-            let out: Vec<(usize, usize, usize)> = tr
-                .triangles
-                .chunks(3)
-                .map(|chunk| (chunk[0], chunk[1], chunk[2]))
-                .collect();
+    // pub fn get_triangle_tripple_indeces(&self) -> Option<Vec<(usize, usize, usize)>> {
+    //     if let Some(tr) = &self.triangulation {
+    //         let out: Vec<(usize, usize, usize)> = tr
+    //             .triangles
+    //             .chunks(3)
+    //             .map(|chunk| (chunk[0], chunk[1], chunk[2]))
+    //             .collect();
 
-            return Some(out);
+    //         return Some(out);
 
-            // let out: Vec<(usize, usize)> = tr.triangles
-            // .chunks(3)
-            // .flat_map(|chunk| {
-            //     vec![
-            //         (chunk[0], chunk[1]),
-            //         (chunk[1], chunk[2]),
-            //         (chunk[2], chunk[0]),
-            //     ]
-            // })
-            // .collect();
-        }
-        None
-    }
+    //         // let out: Vec<(usize, usize)> = tr.triangles
+    //         // .chunks(3)
+    //         // .flat_map(|chunk| {
+    //         //     vec![
+    //         //         (chunk[0], chunk[1]),
+    //         //         (chunk[1], chunk[2]),
+    //         //         (chunk[2], chunk[0]),
+    //         //     ]
+    //         // })
+    //         // .collect();
+    //     }
+    //     None
+    // }
 
-    pub fn get_triangle_edge_indeces(&self) -> Option<Vec<(usize, usize)>> {
-        if let Some(tr) = &self.triangulation {
-            let out: Vec<(usize, usize)> = tr
-                .triangles
-                .chunks(3)
-                .flat_map(|chunk| {
-                    vec![
-                        (chunk[0], chunk[1]),
-                        (chunk[1], chunk[2]),
-                        (chunk[2], chunk[0]),
-                    ]
-                })
-                .collect();
-            return Some(out);
-        }
-        None
-    }
+    // pub fn get_triangle_edge_indeces(&self) -> Option<Vec<(usize, usize)>> {
+    //     if let Some(tr) = &self.triangulation {
+    //         let out: Vec<(usize, usize)> = tr
+    //             .triangles
+    //             .chunks(3)
+    //             .flat_map(|chunk| {
+    //                 vec![
+    //                     (chunk[0], chunk[1]),
+    //                     (chunk[1], chunk[2]),
+    //                     (chunk[2], chunk[0]),
+    //                 ]
+    //             })
+    //             .collect();
+    //         return Some(out);
+    //     }
+    //     None
+    // }
 
-    pub fn get_triangle_edges(&self) -> Option<Vec<(Coord, Coord)>> {
-        let v = self.get_triangle_edge_indeces();
-        if let Some(v) = v {
-            let mut out = Vec::new();
-            for (a, b) in v {
-                out.push((
-                    self.get_centers().unwrap()[a],
-                    self.get_centers().unwrap()[b],
-                ));
-            }
-            return Some(out);
-        }
+    // pub fn get_triangle_edges(&self) -> Option<Vec<(Coord, Coord)>> {
+    //     let v = self.get_triangle_edge_indeces();
+    //     if let Some(v) = v {
+    //         let mut out = Vec::new();
+    //         for (a, b) in v {
+    //             out.push((
+    //                 self.get_centers().unwrap()[a],
+    //                 self.get_centers().unwrap()[b],
+    //             ));
+    //         }
+    //         return Some(out);
+    //     }
 
-        None
-    }
+    //     None
+    // }
 }
 
 fn flatten_and_zip(vertices: &Vec<Vec<Vec2>>) -> Vec<Vec3> {
@@ -149,3 +142,4 @@ fn flatten_and_zip(vertices: &Vec<Vec<Vec2>>) -> Vec<Vec3> {
         .map(|v| Vec3::new(v.x, v.y, 0.0))
         .collect()
 }
+

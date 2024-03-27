@@ -1,5 +1,11 @@
 #![allow(dead_code)]
 
+use crate::{
+    room::process_rooms,
+    tile_map::{FromUMap, TileMap},
+    triangulation::mst_to_coords,
+    types::Coord,
+};
 use anyhow::Result;
 use bitmap::{apply_blur, get_initial_planet_map, umap_to_image_buffer};
 use cellular_automata::simulate;
@@ -7,22 +13,21 @@ use delaunator::Triangulation;
 use marching_squares::march_squares_rgba;
 use noise::permutationtable::PermutationTable;
 use planet_data::PlanetData;
-use types::{FMap, FractalNoiseOptions, PlanetMap, UMap8};
 pub use types::PlanetOptions;
-use crate::{room::process_rooms, tile_map::{FromUMap, TileMap}};
+use types::{FMap, FractalNoiseOptions, PlanetMap, UMap8};
 
 mod bitmap;
 mod cellular_automata;
 mod marching_squares;
 mod noise_circle;
 mod noise_example;
-mod traits;
-mod utils;
-mod triangulation;
 pub mod planet_data;
 pub mod room;
 pub mod tile_map;
+mod traits;
+mod triangulation;
 pub mod types;
+mod utils;
 
 pub struct PlanetBuilder {
     hasher: PermutationTable,
@@ -47,23 +52,20 @@ impl PlanetBuilder {
 
         let room_map_raw: UMap8 = simulate(&options, &initial_planet_map, &depth_field);
 
-        // room_map_raw.debug_print_pretty();
-
         let mut tile_map = TileMap::rooms_planet_combiner(&initial_planet_map, &room_map_raw);
-        // tile_map.debug_print();
-        
+
         let room_structs = process_rooms(&mut tile_map);
 
-        // room_structs.debug_print();
-        // room_structs.iter().for_each(|room|{room.debug_print()});
-        // tile_map.debug_print();
-   
-        let tr: Option<Triangulation> = triangulation::delaunate_rooms(&room_structs)
-        .ok()
-        .map(|triangulation| Some(triangulation))
-        .unwrap_or(None);
+        let triangulation: Option<Triangulation> = triangulation::delaunate_rooms(&room_structs)
+            .ok()
+            .map(|triangulation| Some(triangulation))
+            .unwrap_or(None);
 
-        let map_main:UMap8 = sub(
+        let mst = triangulation
+            .as_ref()
+            .map(|tr| mst_to_coords(tr, &room_structs));
+
+        let map_main: UMap8 = sub(
             &room_map_raw,
             &initial_planet_map,
             &depth_field,
@@ -90,11 +92,11 @@ impl PlanetBuilder {
             poly_lines: polylines,
             tile_map: Some(tile_map),
             rooms: Some(room_structs),
-            triangulation: tr
+            triangulation: triangulation,
+            mst,
         })
     }
 }
-
 
 fn sub(this: &Vec<Vec<u8>>, from: &Vec<Vec<u8>>, mask: &FMap, thresh: f32) -> Vec<Vec<u8>> {
     from.iter()

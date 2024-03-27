@@ -103,7 +103,7 @@ pub fn mst(triangle_edge_indices: &Vec<(usize, usize)>, room_centers: &Vec<Coord
 
     triangle_edge_indices.iter().enumerate().for_each(|(_, edge)| {
         ({
-            let cost = dist(&room_centers[edge.0], &room_centers[edge.1]);
+            let cost = dist_squared(&room_centers[edge.0], &room_centers[edge.1]);
             graph.add_edge(node_indexes[edge.0], node_indexes[edge.1], cost);
         })
     });
@@ -114,8 +114,62 @@ pub fn mst(triangle_edge_indices: &Vec<(usize, usize)>, room_centers: &Vec<Coord
     mst_edges
 }
 
+pub fn get_triangle_edge_indeces(triangulation: &Triangulation) -> Vec<(usize, usize)> {
+    // if let Some(tr) = &self.triangulation {
+        let out: Vec<(usize, usize)> = triangulation
+            .triangles
+            .chunks(3)
+            .flat_map(|chunk| {
+                vec![
+                    (chunk[0], chunk[1]),
+                    (chunk[1], chunk[2]),
+                    (chunk[2], chunk[0]),
+                ]
+            })
+            .collect();
+        
+        out
 
+        // return Some(out);
 
+    // }
+    // None
+}
+
+pub fn mst_to_coords(tr: &Triangulation, rooms: &Vec<Room>) -> Vec<(Coord, Coord)> {
+
+    let room_centers = rooms.iter().map(|room| room.center).collect();
+    
+    let t = get_triangle_edge_indeces(&tr);
+
+        // let r = self.get_centers().unwrap();
+
+        let m = mst(&t, &room_centers);
+
+        let mut out: Vec<(Coord, Coord)> = Vec::new();
+
+        for edge in m {
+            match edge {
+                Element::Edge {
+                    source,
+                    target,
+                    weight: _,
+                } => {
+                    // if let Some(rooms) = self.rooms.as_ref() {
+                        let a = rooms[source].center;
+                        let b = rooms[target].center;
+                        out.push((a, b))
+                    // }
+                }
+                _ => {} // we are not interested in the Node varient of the Enum
+            }
+        }
+        out
+    
+    // else{
+    //     vec![]
+    // }
+}
 
 
 fn dist_squared(a: &Coord, b: &Coord) -> f32 {

@@ -179,7 +179,7 @@ pub fn process_rooms(tiles: &mut TileMap) -> Vec<Room> {
     for x in 0..res {
         for y in 0..res {
             match tiles[x][y] {
-                Tile::Room(_) => match get_room(x, y, tiles, room_counter, 4) {
+                Tile::Room(_) => match get_room(x, y, tiles, room_counter, 15) {
                     Some(room) => {
                         tracing::debug!("found room: {:?}", room);
                         rooms.push(room);
