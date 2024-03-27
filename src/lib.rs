@@ -3,26 +3,26 @@
 use anyhow::Result;
 use bitmap::{apply_blur, get_initial_planet_map, umap_to_image_buffer};
 use cellular_automata::simulate;
-use glam::{Vec2, Vec3};
+use delaunator::Triangulation;
 use marching_squares::march_squares_rgba;
 use noise::permutationtable::PermutationTable;
-use room::Room;
-use std::collections::VecDeque;
+use planet_data::PlanetData;
+use types::{FMap, FractalNoiseOptions, PlanetMap, UMap8};
 pub use types::PlanetOptions;
-use types::{Coord, FMap, FractalNoiseOptions, PlanetData, PlanetMap, UMap8};
-
-use crate::tile_map::{FromUMap, Tile, TileMap};
+use crate::{room::process_rooms, tile_map::{FromUMap, TileMap}};
 
 mod bitmap;
 mod cellular_automata;
 mod marching_squares;
 mod noise_circle;
 mod noise_example;
+mod traits;
+mod utils;
+mod triangulation;
+pub mod planet_data;
 pub mod room;
 pub mod tile_map;
-mod traits;
 pub mod types;
-mod utils;
 
 pub struct PlanetBuilder {
     hasher: PermutationTable,
@@ -54,12 +54,14 @@ impl PlanetBuilder {
         
         let room_structs = process_rooms(&mut tile_map);
 
-        
-
         // room_structs.debug_print();
         // room_structs.iter().for_each(|room|{room.debug_print()});
         // tile_map.debug_print();
-
+   
+        let tr: Option<Triangulation> = triangulation::delaunate_rooms(&room_structs)
+        .ok()
+        .map(|triangulation| Some(triangulation))
+        .unwrap_or(None);
 
         let map_main:UMap8 = sub(
             &room_map_raw,
@@ -88,138 +90,11 @@ impl PlanetBuilder {
             poly_lines: polylines,
             tile_map: Some(tile_map),
             rooms: Some(room_structs),
+            triangulation: tr
         })
     }
 }
 
-fn process_rooms(tiles: &mut TileMap) -> Vec<Room> {
-    let res = tiles.len();
-    let mut room_counter: u16 = 0;
-    let mut rooms: Vec<Room> = Vec::new();
-
-    for x in 0..res {
-        for y in 0..res {
-            match tiles[x][y] {
-                Tile::Room(_) => match get_room(x, y, tiles, room_counter, 4) {
-                    Some(room) => {
-                        tracing::debug!("found room: {:?}", room);
-                        rooms.push(room);
-                        room_counter += 1;
-                    }
-                    None => {
-                        tracing::debug!("No room found");
-                        continue;
-                    }
-                },
-                _ => continue,
-            }
-        }
-    }
-    rooms
-}
-
-fn get_room(
-    x: usize,
-    y: usize,
-    tile_map: &mut TileMap,
-    id: u16,
-    min_room_size: usize,
-) -> Option<Room> {
-
-    let res = tile_map.len() as usize;
-    let start_tile = tile_map[x][y];
-
-    if start_tile != Tile::Room(None) {
-        return None;
-    }
-
-    let mut results: Vec<Coord> = vec![];
-    let mut queue = VecDeque::new();
-
-    queue.push_back(Coord { x, y });
-    tile_map[x][y] = Tile::Room(Some(id));
-
-    while queue.len() > 0 {
-        let tile = queue.pop_front().unwrap();
-        results.push(tile);
-
-        let this_coord = Coord {
-            x: tile.x,
-            y: tile.y,
-        };
-
-        for adjacent_coord in get_adjacent_coords(&this_coord, res) {
-            if tile_map[adjacent_coord.x][adjacent_coord.y] != Tile::Room(None) {
-                continue;
-            }
-            tile_map[adjacent_coord.x][adjacent_coord.y] = Tile::Room(Some(id));
-            queue.push_back(adjacent_coord);
-        }
-    }
-
-    // erase if below min size
-    if results.len() < min_room_size {
-        results.iter().for_each(|c| tile_map[c.x][c.y] = Tile::Wall);
-        return None;
-    }
-
-    let new_room = Room::new(results, id);
-
-    tile_map[new_room.center.x][new_room.center.y] = Tile::RoomCenter(id);
-
-    for edge_tile_index in &new_room.edge_tile_indexes {
-        let e = new_room.tiles[*edge_tile_index];
-        tile_map[e.x][e.y] = Tile::RoomEdge(id);
-    }
-
-    Some(new_room)
-}
-
-pub fn get_adjacent_coords(coord: &Coord, max_size: usize) -> Vec<Coord> {
-    let mut adjacent_coords = Vec::new();
-
-    // Check above
-    if coord.y > 0 {
-        adjacent_coords.push(Coord {
-            x: coord.x,
-            y: coord.y - 1,
-        });
-    }
-
-    // Check below
-    if coord.y < max_size - 1 {
-        adjacent_coords.push(Coord {
-            x: coord.x,
-            y: coord.y + 1,
-        });
-    }
-
-    // Check left
-    if coord.x > 0 {
-        adjacent_coords.push(Coord {
-            x: coord.x - 1,
-            y: coord.y,
-        });
-    }
-
-    // Check right
-    if coord.x < max_size - 1 {
-        adjacent_coords.push(Coord {
-            x: coord.x + 1,
-            y: coord.y,
-        });
-    }
-
-    adjacent_coords
-}
-
-fn flatten_and_zip(vertices: &Vec<Vec<Vec2>>) -> Vec<Vec3> {
-    vertices
-        .iter()
-        .flat_map(|digit_points| digit_points.windows(2).flat_map(|window| window))
-        .map(|v| Vec3::new(v.x, v.y, 0.0))
-        .collect()
-}
 
 fn sub(this: &Vec<Vec<u8>>, from: &Vec<Vec<u8>>, mask: &FMap, thresh: f32) -> Vec<Vec<u8>> {
     from.iter()
@@ -250,55 +125,4 @@ fn mult(this: &Vec<Vec<u8>>, from: &Vec<Vec<u8>>) -> Vec<Vec<u8>> {
                 .collect()
         })
         .collect()
-}
-
-trait DebugPrint {
-    fn debug_print(&self);
-}
-
-impl DebugPrint for Vec<Room> {
-    fn debug_print(&self) {
-        println!("");
-        println!("Debug print room vec --- {:?} rooms \n", self.len());
-
-        let mut min = Coord::max();
-        let mut max = Coord::min();
-
-        for room in self {
-            let (room_min, room_max) = room.get_min_max_coords();
-
-            min.x = min.x.min(room_min.x);
-            min.y = min.y.min(room_min.y);
-
-            max.x = max.x.max(room_max.x);
-            max.y = max.y.max(room_max.y);
-        }
-
-        println!("Min: {} {} Max: {} {}", min.x, min.y, max.x, max.y);
-
-        for y in min.y..=max.y{
-            for x in min.x..=max.x {
-                let c = Coord { x, y };
-                if self.iter().any(|r| r.tiles.contains(&c)) {
-                    print!("X ");
-                } else {
-                    print!("  ");
-                }
-            }
-            println!("");
-        }
-
-        // for x in min.y..=max.y {
-        //     for y in min.x..=max.x {
-        //         let c = Coord { x, y };
-        //         if self.iter().any(|r| r.tiles.contains(&c)) {
-        //             print!("X ");
-        //         } else {
-        //             print!("  ");
-        //         }
-        //     }
-        //     println!("");
-        // }
-        
-    }
 }

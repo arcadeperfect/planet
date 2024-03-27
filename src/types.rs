@@ -1,9 +1,10 @@
 use std::ops::Add;
 
+use delaunator::Triangulation;
 use glam::{Vec2, Vec3};
 use image::{ImageBuffer, Rgba};
 
-use crate::{flatten_and_zip, room::Room, TileMap};
+use crate::{room::Room, TileMap};
 use serde::{Serialize, Deserialize};
 // pub type FloatImage = ImageBuffer<Rgba<f32>, Vec<f32>>;
 // pub type Map16 = Vec<Vec<u16>>;
@@ -38,30 +39,31 @@ impl Blank for FMap {
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct PlanetData {
-    pub image: Option<ImageBuffer<Rgba<u8>, Vec<u8>>>,
-    pub planet_map: PlanetMap,
-    pub poly_lines: Vec<Vec<Vec2>>,
-    pub tile_map: Option<TileMap>,
-    pub rooms: Option<Vec<Room>>
-    // pub rooms_debug_image:Option<ImageBuffer<Rgba<u8>, Vec<u8>>>
-}
+// #[derive(Clone, Debug)]
+// pub struct PlanetData {
+//     pub image: Option<ImageBuffer<Rgba<u8>, Vec<u8>>>,
+//     pub planet_map: PlanetMap,
+//     pub poly_lines: Vec<Vec<Vec2>>,
+//     pub tile_map: Option<TileMap>,
+//     pub rooms: Option<Vec<Room>>,
+//     // pub rooms_debug_image:Option<ImageBuffer<Rgba<u8>, Vec<u8>>>
+//     pub triangulation: Option<Triangulation>,
+// }
 
-impl PlanetData {
-    /// return the poly lines as a flattened list where each pair represents a line segment
-    /// this results in a lot of doubled points, but this is how the shader likes it
-    pub fn get_line_list(&self) -> Vec<Vec3> {
-        flatten_and_zip(&self.poly_lines)
-    }
+// impl PlanetData {
+//     /// return the poly lines as a flattened list where each pair represents a line segment
+//     /// this results in a lot of doubled points, but this is how the shader likes it
+//     pub fn get_line_list(&self) -> Vec<Vec3> {
+//         flatten_and_zip(&self.poly_lines)
+//     }
 
-    pub fn get_dimension(&self) -> Option<usize> {
-        match &self.image {
-            Some(_) => Some(self.tile_map.as_ref().unwrap().len()),
-            None => None
-        }
-    }
-}
+//     pub fn get_dimension(&self) -> Option<usize> {
+//         match &self.image {
+//             Some(_) => Some(self.tile_map.as_ref().unwrap().len()),
+//             None => None
+//         }
+//     }
+// }
 
 #[derive(Clone, Debug)]
 pub struct PlanetMap {
@@ -255,5 +257,56 @@ impl Add<(i32, i32)> for Coord {
             x: new_x as usize,
             y: new_y as usize,
         }
+    }
+}
+
+pub trait DebugPrint {
+    fn debug_print(&self);
+}
+
+impl DebugPrint for Vec<Room> {
+    fn debug_print(&self) {
+        println!("");
+        println!("Debug print room vec --- {:?} rooms \n", self.len());
+
+        let mut min = Coord::max();
+        let mut max = Coord::min();
+
+        for room in self {
+            let (room_min, room_max) = room.get_min_max_coords();
+
+            min.x = min.x.min(room_min.x);
+            min.y = min.y.min(room_min.y);
+
+            max.x = max.x.max(room_max.x);
+            max.y = max.y.max(room_max.y);
+        }
+
+        println!("Min: {} {} Max: {} {}", min.x, min.y, max.x, max.y);
+
+        for y in min.y..=max.y{
+            for x in min.x..=max.x {
+                let c = Coord { x, y };
+                if self.iter().any(|r| r.tiles.contains(&c)) {
+                    print!("X ");
+                } else {
+                    print!("  ");
+                }
+            }
+            println!("");
+        }
+
+        // for x in min.y..=max.y {
+        //     for y in min.x..=max.x {
+        //         let c = Coord { x, y };
+        //         if self.iter().any(|r| r.tiles.contains(&c)) {
+        //             print!("X ");
+        //         } else {
+        //             print!("  ");
+        //         }
+        //     }
+        //     println!("");
+        // }
+        
     }
 }

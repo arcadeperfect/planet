@@ -1,5 +1,5 @@
-use crate::types::Coord;
-use std::collections::HashSet;
+use crate::{tile_map::{Tile, TileMap}, types::Coord};
+use std::collections::{HashSet, VecDeque};
 
 #[derive(Clone, Default, Debug)]
 pub struct Room {
@@ -169,4 +169,125 @@ fn dist(a: &Coord, b: &Coord) -> f32 {
     let dx = b.x - a.x;
     let dy = b.y - a.y;
     ((dx * dx + dy * dy) as f32).sqrt()
+}
+
+pub fn process_rooms(tiles: &mut TileMap) -> Vec<Room> {
+    let res = tiles.len();
+    let mut room_counter: u16 = 0;
+    let mut rooms: Vec<Room> = Vec::new();
+
+    for x in 0..res {
+        for y in 0..res {
+            match tiles[x][y] {
+                Tile::Room(_) => match get_room(x, y, tiles, room_counter, 4) {
+                    Some(room) => {
+                        tracing::debug!("found room: {:?}", room);
+                        rooms.push(room);
+                        room_counter += 1;
+                    }
+                    None => {
+                        tracing::debug!("No room found");
+                        continue;
+                    }
+                },
+                _ => continue,
+            }
+        }
+    }
+    rooms
+}
+
+fn get_room(
+    x: usize,
+    y: usize,
+    tile_map: &mut TileMap,
+    id: u16,
+    min_room_size: usize,
+) -> Option<Room> {
+
+    let res = tile_map.len() as usize;
+    let start_tile = tile_map[x][y];
+
+    if start_tile != Tile::Room(None) {
+        return None;
+    }
+
+    let mut results: Vec<Coord> = vec![];
+    let mut queue = VecDeque::new();
+
+    queue.push_back(Coord { x, y });
+    tile_map[x][y] = Tile::Room(Some(id));
+
+    while queue.len() > 0 {
+        let tile = queue.pop_front().unwrap();
+        results.push(tile);
+
+        let this_coord = Coord {
+            x: tile.x,
+            y: tile.y,
+        };
+
+        for adjacent_coord in get_adjacent_coords(&this_coord, res) {
+            if tile_map[adjacent_coord.x][adjacent_coord.y] != Tile::Room(None) {
+                continue;
+            }
+            tile_map[adjacent_coord.x][adjacent_coord.y] = Tile::Room(Some(id));
+            queue.push_back(adjacent_coord);
+        }
+    }
+
+    // erase if below min size
+    if results.len() < min_room_size {
+        results.iter().for_each(|c| tile_map[c.x][c.y] = Tile::Wall);
+        return None;
+    }
+
+    let new_room = Room::new(results, id);
+
+    tile_map[new_room.center.x][new_room.center.y] = Tile::RoomCenter(id);
+
+    for edge_tile_index in &new_room.edge_tile_indexes {
+        let e = new_room.tiles[*edge_tile_index];
+        tile_map[e.x][e.y] = Tile::RoomEdge(id);
+    }
+
+    Some(new_room)
+}
+
+pub fn get_adjacent_coords(coord: &Coord, max_size: usize) -> Vec<Coord> {
+    let mut adjacent_coords = Vec::new();
+
+    // Check above
+    if coord.y > 0 {
+        adjacent_coords.push(Coord {
+            x: coord.x,
+            y: coord.y - 1,
+        });
+    }
+
+    // Check below
+    if coord.y < max_size - 1 {
+        adjacent_coords.push(Coord {
+            x: coord.x,
+            y: coord.y + 1,
+        });
+    }
+
+    // Check left
+    if coord.x > 0 {
+        adjacent_coords.push(Coord {
+            x: coord.x - 1,
+            y: coord.y,
+        });
+    }
+
+    // Check right
+    if coord.x < max_size - 1 {
+        adjacent_coords.push(Coord {
+            x: coord.x + 1,
+            y: coord.y,
+        });
+    }
+
+    adjacent_coords
 }
