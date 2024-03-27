@@ -1,10 +1,12 @@
 use delaunator::Triangulation;
 use glam::{Vec2, Vec3};
 use image::{ImageBuffer, Rgba};
+use petgraph::data::Element;
 
 use crate::{
     room::Room,
     tile_map::TileMap,
+    triangulation::mst,
     types::{Coord, PlanetMap},
 };
 
@@ -38,6 +40,48 @@ impl PlanetData {
             None => None,
         }
     }
+
+    pub fn get_mst(&self) -> Vec<(Coord, Coord)> {
+        if let Some(t) = self.get_triangle_edge_indeces() {
+            let r = self.get_centers().unwrap();
+
+            let m = mst(&t, &r);
+
+            let mut out: Vec<(Coord, Coord)> = Vec::new();
+
+            for edge in m {
+                match edge {
+                    Element::Edge {
+                        source,
+                        target,
+                        weight: _,
+                    } => {
+                        if let Some(rooms) = self.rooms.as_ref() {
+                            let a = rooms[source].center;
+                            let b = rooms[target].center;
+                            out.push((a, b))
+                        }
+                    }
+                    _ => {} // we are not interested in the Node varient of the Enum
+                }
+            }
+
+            out
+        }
+        else{
+            vec![]
+        }
+    }
+
+    // pub fn get_mst_coords(&self) -> Option<Vec<Coord>> {
+    //     if let Some(i) = self.get_triangle_edge_indeces() {
+    //         let c = self.get_centers().unwrap();
+    //         let j = get_mst_coords(&i, &c);
+    //         Some(j)
+    //     } else {
+    //         None
+    //     }
+    // }
 
     pub fn get_triangle_tripple_indeces(&self) -> Option<Vec<(usize, usize, usize)>> {
         if let Some(tr) = &self.triangulation {
@@ -82,16 +126,18 @@ impl PlanetData {
     }
 
     pub fn get_triangle_edges(&self) -> Option<Vec<(Coord, Coord)>> {
-        
         let v = self.get_triangle_edge_indeces();
         if let Some(v) = v {
             let mut out = Vec::new();
             for (a, b) in v {
-                out.push((self.get_centers().unwrap()[a], self.get_centers().unwrap()[b]));
+                out.push((
+                    self.get_centers().unwrap()[a],
+                    self.get_centers().unwrap()[b],
+                ));
             }
             return Some(out);
         }
-        
+
         None
     }
 }
