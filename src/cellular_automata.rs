@@ -21,7 +21,7 @@ fn precompute_circle_offsets(radius: u32) -> Vec<(i32, i32)> {
     offsets
 }
 
-pub fn simulate(options: &PlanetOptions, _map: &UMap8, altitude: &FMap) -> UMap8 {
+pub fn simulate_ca(options: &PlanetOptions, _map: &UMap8, altitude: &FMap) -> UMap8 {
     let mut map1: UMap8 = random_distribution(options.resolution(), options.weight);
     let mut map2 = UMap8::blank(options.resolution() as usize);
 

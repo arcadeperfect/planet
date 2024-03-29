@@ -40,7 +40,7 @@ impl FromUMap<u8> for TileMap {
                         out[x][y] = Tile::Wall;
                     }
                     if rooms[x][y] == 1 {
-                        out[x][y] = Tile::Room(None);
+                        out[x][y] = Tile::Room(Status::Undesignated);
                     }
                 }
             }
@@ -54,9 +54,16 @@ pub enum Tile {
     Space,
     Wall,
     Surface,
-    Room(Option<u16>),
+    Room(Status),
     RoomEdge(u16),
     RoomCenter(u16),
+    Tunnel(u16)
+}
+
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum Status{
+    Designated(u16),
+    Undesignated,
 }
 
 pub trait TileMapDebug {
@@ -98,14 +105,18 @@ impl TileMapDebug for Vec<Vec<Tile>> {
                     Tile::Wall => ".".to_string(),
                     Tile::Surface => "*".to_string(),
                     Tile::Room(value) => match value {
-                        Some(v) => (format!("{:1} ", v)).trim().to_string(),
-                        None => "!".to_string(),
+                        Status::Designated(v) => format!("{:1} ", v).trim().to_string(),
+                        Status::Undesignated => "!".to_string(),
+
+                        // Some(v) => (format!("{:1} ", v)).trim().to_string(),
+                        // None => "!".to_string(),
                     },
                     Tile::RoomEdge(_) => "e".to_string(),
                     Tile::RoomCenter(_) => {
 
                         "c".to_string()
                     },
+                    Tile::Tunnel(_) => "@".to_string()
                 };
                 result.push_str(&symbol);
                 result.push(' '); // Add space after each symbol

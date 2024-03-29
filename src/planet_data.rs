@@ -4,10 +4,7 @@ use image::{ImageBuffer, Rgba};
 use petgraph::data::Element;
 
 use crate::{
-    room::Room,
-    tile_map::TileMap,
-    triangulation::{get_triangle_edge_indeces, mst},
-    types::{Coord, PlanetMap},
+    room::Room, roooms::Roooms, tile_map::TileMap, triangulation::{_calculate_mst, get_triangle_edge_indeces}, types::{Coord, PlanetMap}
 };
 
 #[derive(Clone, Debug)]
@@ -16,9 +13,10 @@ pub struct PlanetData {
     pub planet_map: PlanetMap,
     pub poly_lines: Vec<Vec<Vec2>>,
     pub tile_map: Option<TileMap>,
-    pub rooms: Option<Vec<Room>>,
-    pub triangulation: Option<Triangulation>,
-    pub mst: Option<Vec<(Coord, Coord)>>
+    // pub rooms: Option<Vec<Room>>,
+    // pub triangulation: Option<Triangulation>,
+    pub mst: Option<Vec<(Coord, Coord)>>,
+    pub roooms: Option<Roooms>,
 }
 
 impl PlanetData {
@@ -35,12 +33,13 @@ impl PlanetData {
         }
     }
 
-    pub fn get_centers(&self) -> Option<Vec<Coord>> {
-        match &self.rooms {
-            Some(rooms) => Some(rooms.iter().map(|room| room.center).collect()),
-            None => None,
-        }
-    }
+    // pub fn get_centers(&self) -> Option<Vec<Coord>> {
+    //     match &self.rooms {
+    //         Some(rooms) => Some(rooms.iter().map(|room| room.center).collect()),
+    //         None => None,
+    //     }
+    // }
+    
 
     // pub fn get_mst(&self) -> Vec<(Coord, Coord)> {
 

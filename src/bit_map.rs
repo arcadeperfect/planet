@@ -5,7 +5,7 @@ use imageproc::filter::gaussian_blur_f32;
 
 use crate::{
     noise_circle::generate_fbm_circle,
-    types::{FMap, FractalNoiseOptions, UMap8},
+    types::{Coord, FMap, FractalNoiseOptions, UMap8},
     PlanetOptions,
 };
 
@@ -98,4 +98,116 @@ pub fn find_brightest_pixel(image: &RgbaImage) -> Rgba<u8> {
     }
 
     brightest_pixel
+}
+
+
+pub fn simple_line(start: Coord, end: Coord) -> Vec<Coord> {
+    let mut points = Vec::new();
+
+    let mut x0 = start.x as isize;
+    let mut y0 = start.y as isize;
+    let x1 = end.x as isize;
+    let y1 = end.y as isize;
+
+    let dx = (x1 - x0).abs();
+    let dy = -(y1 - y0).abs();
+    let sx = if x0 < x1 { 1 } else { -1 };
+    let sy = if y0 < y1 { 1 } else { -1 };
+    let mut err = dx + dy;
+
+    loop {
+        points.push(Coord {
+            x: x0 as usize,
+            y: y0 as usize,
+        });
+
+        if x0 == x1 && y0 == y1 {
+            break;
+        }
+
+        let e2 = 2 * err;
+        if e2 >= dy {
+            err += dy;
+            x0 += sx;
+        }
+        if e2 <= dx {
+            err += dx;
+            y0 += sy;
+        }
+    }
+
+    points
+}
+
+pub fn thick_line(start: &Coord, end: &Coord, thickness: usize) -> Vec<Coord> {
+    let mut points = Vec::new();
+    let mut x0 = start.x as isize;
+    let mut y0 = start.y as isize;
+    let x1 = end.x as isize;
+    let y1 = end.y as isize;
+    let dx = (x1 - x0).abs();
+    let dy = -(y1 - y0).abs();
+    let sx = if x0 < x1 { 1 } else { -1 };
+    let sy = if y0 < y1 { 1 } else { -1 };
+    let mut err = dx + dy;
+
+    let half_thickness = thickness as isize / 2;
+
+    loop {
+        for i in -half_thickness..=half_thickness {
+            for j in -half_thickness..=half_thickness {
+                let px = x0 + i;
+                let py = y0 + j;
+                if px >= 0 && py >= 0 {
+                    points.push(Coord {
+                        x: px as usize,
+                        y: py as usize,
+                    });
+                }
+            }
+        }
+
+        if x0 == x1 && y0 == y1 {
+            break;
+        }
+
+        let e2 = 2 * err;
+        if e2 >= dy {
+            err += dy;
+            x0 += sx;
+        }
+        if e2 <= dx {
+            err += dx;
+            y0 += sy;
+        }
+    }
+
+    points
+}
+
+
+pub fn nearest_neighbor(a: Vec<Coord>, b: Vec<Coord>) -> (Coord, Coord){
+    let mut dist = f32::MAX;
+    let mut s_a = a[0];
+    let mut s_b = b[0];
+    for c_a in &a{
+        for c_b in &b{
+            let d = dist_squared(&c_a, &c_b);
+            if d < dist {
+                dist = d;
+                s_a = *c_a;
+                s_b = *c_b;
+            }
+        }
+    }
+    (s_a, s_b)
+}
+
+
+
+
+fn dist_squared(a: &Coord, b: &Coord) -> f32 {
+    let dx = b.x - a.x;
+    let dy = b.y - a.y;
+    (dx * dx + dy * dy) as f32
 }

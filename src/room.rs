@@ -1,4 +1,7 @@
-use crate::{tile_map::{Tile, TileMap}, types::Coord};
+use crate::{
+    tile_map::{Status, Tile, TileMap, TileMapDebug},
+    types::Coord,
+};
 use std::collections::{HashSet, VecDeque};
 
 #[derive(Clone, Default, Debug)]
@@ -23,6 +26,72 @@ impl Room {
             edge_tile_indexes,
             id,
         }
+    }
+
+    /// Attempts to generate a room
+    ///
+    /// Uses floodfill algorithm to generate a room, starting on the specified
+    /// tile. If succesful, mutates the tile map and returns a room struct.
+    pub fn generate_room(
+        search_start: (usize, usize),
+        tile_map: &mut TileMap,
+        id: u16,
+        min_room_size: usize,
+    ) -> Option<Room> {
+
+        
+        
+
+        let x = search_start.0;
+        let y = search_start.1;
+
+        let res = tile_map.len() as usize;
+        let start_tile = tile_map[x][y];
+
+        if start_tile != Tile::Room(Status::Undesignated) {
+            return None;
+        }
+
+        let mut results: Vec<Coord> = vec![];
+        let mut queue = VecDeque::new();
+
+        queue.push_back(Coord { x, y });
+        tile_map[x][y] = Tile::Room(Status::Designated(id));
+
+        while queue.len() > 0 {
+            let tile = queue.pop_front().unwrap();
+            results.push(tile);
+
+            let this_coord = Coord {
+                x: tile.x,
+                y: tile.y,
+            };
+
+            for adjacent_coord in get_adjacent_coords(&this_coord, res) {
+                if tile_map[adjacent_coord.x][adjacent_coord.y] != Tile::Room(Status::Undesignated) {
+                    continue;
+                }
+                tile_map[adjacent_coord.x][adjacent_coord.y] = Tile::Room(Status::Designated(id));
+                queue.push_back(adjacent_coord);
+            }
+        }
+
+        // erase if below min size
+        if results.len() < min_room_size {
+            results.iter().for_each(|c| tile_map[c.x][c.y] = Tile::Wall);
+            return None;
+        }
+
+        let new_room = Room::new(results, id);
+
+        tile_map[new_room.center.x][new_room.center.y] = Tile::RoomCenter(id);
+
+        for edge_tile_index in &new_room.edge_tile_indexes {
+            let e = new_room.tiles[*edge_tile_index];
+            tile_map[e.x][e.y] = Tile::RoomEdge(id);
+        }
+
+        Some(new_room)
     }
 
     pub fn get_edge_tiles(&self) -> Vec<Coord> {
@@ -58,10 +127,6 @@ impl Room {
         println!("Room id: {}", self.id);
 
         let (min, max) = self.get_min_max_coords();
-
-        // for c in &self.tiles {
-        //     println!("{} {}", c.x, c.y);
-        // }
 
         for y in min.y..=max.y {
             for x in min.x..=max.x {
@@ -159,27 +224,17 @@ fn get_center(tiles: &[Coord], edges: &[usize]) -> Coord {
     center
 }
 
-fn dist_squared(a: &Coord, b: &Coord) -> f32 {
-    let dx = b.x - a.x;
-    let dy = b.y - a.y;
-    (dx * dx + dy * dy) as f32
-}
-
-fn dist(a: &Coord, b: &Coord) -> f32 {
-    let dx = b.x - a.x;
-    let dy = b.y - a.y;
-    ((dx * dx + dy * dy) as f32).sqrt()
-}
-
-pub fn process_rooms(tiles: &mut TileMap) -> Vec<Room> {
+pub fn generate_rooms(tiles: &mut TileMap) -> Vec<Room> {
     let res = tiles.len();
     let mut room_counter: u16 = 0;
     let mut rooms: Vec<Room> = Vec::new();
 
+    tiles.debug_print();
+
     for x in 0..res {
         for y in 0..res {
             match tiles[x][y] {
-                Tile::Room(_) => match get_room(x, y, tiles, room_counter, 15) {
+                Tile::Room(_) => match Room::generate_room((x, y), tiles, room_counter, 15) {
                     Some(room) => {
                         tracing::debug!("found room: {:?}", room);
                         rooms.push(room);
@@ -197,62 +252,62 @@ pub fn process_rooms(tiles: &mut TileMap) -> Vec<Room> {
     rooms
 }
 
-fn get_room(
-    x: usize,
-    y: usize,
-    tile_map: &mut TileMap,
-    id: u16,
-    min_room_size: usize,
-) -> Option<Room> {
+// fn get_room(
+//     x: usize,
+//     y: usize,
+//     tile_map: &mut TileMap,
+//     id: u16,
+//     min_room_size: usize,
+// ) -> Option<Room> {
 
-    let res = tile_map.len() as usize;
-    let start_tile = tile_map[x][y];
+//     let res = tile_map.len() as usize;
+//     let start_tile = tile_map[x][y];
 
-    if start_tile != Tile::Room(None) {
-        return None;
-    }
+//     if start_tile != Tile::Room(None) {
+//         return None;
+//     }
 
-    let mut results: Vec<Coord> = vec![];
-    let mut queue = VecDeque::new();
+//     let mut results: Vec<Coord> = vec![];
+//     let mut queue = VecDeque::new();
 
-    queue.push_back(Coord { x, y });
-    tile_map[x][y] = Tile::Room(Some(id));
+//     queue.push_back(Coord { x, y });
+//     tile_map[x][y] = Tile::Room(Some(id));
 
-    while queue.len() > 0 {
-        let tile = queue.pop_front().unwrap();
-        results.push(tile);
+//     while queue.len() > 0 {
+//         let tile = queue.pop_front().unwrap();
+//         results.push(tile);
 
-        let this_coord = Coord {
-            x: tile.x,
-            y: tile.y,
-        };
+//         let this_coord = Coord {
+//             x: tile.x,
+//             y: tile.y,
+//         };
 
-        for adjacent_coord in get_adjacent_coords(&this_coord, res) {
-            if tile_map[adjacent_coord.x][adjacent_coord.y] != Tile::Room(None) {
-                continue;
-            }
-            tile_map[adjacent_coord.x][adjacent_coord.y] = Tile::Room(Some(id));
-            queue.push_back(adjacent_coord);
-        }
-    }
+//         for adjacent_coord in get_adjacent_coords(&this_coord, res) {
+//             if tile_map[adjacent_coord.x][adjacent_coord.y] != Tile::Room(None) {
+//                 continue;
+//             }
+//             tile_map[adjacent_coord.x][adjacent_coord.y] = Tile::Room(Some(id));
+//             queue.push_back(adjacent_coord);
+//         }
+//     }
 
-    // erase if below min size
-    if results.len() < min_room_size {
-        results.iter().for_each(|c| tile_map[c.x][c.y] = Tile::Wall);
-        return None;
-    }
+//     // erase if below min size
+//     if results.len() < min_room_size {
+//         results.iter().for_each(|c| tile_map[c.x][c.y] = Tile::Wall);
+//         return None;
+//     }
 
-    let new_room = Room::new(results, id);
+//     let new_room = Room::new(results, id);
 
-    tile_map[new_room.center.x][new_room.center.y] = Tile::RoomCenter(id);
+//     tile_map[new_room.center.x][new_room.center.y] = Tile::RoomCenter(id);
 
-    for edge_tile_index in &new_room.edge_tile_indexes {
-        let e = new_room.tiles[*edge_tile_index];
-        tile_map[e.x][e.y] = Tile::RoomEdge(id);
-    }
+//     for edge_tile_index in &new_room.edge_tile_indexes {
+//         let e = new_room.tiles[*edge_tile_index];
+//         tile_map[e.x][e.y] = Tile::RoomEdge(id);
+//     }
 
-    Some(new_room)
-}
+//     Some(new_room)
+// }
 
 pub fn get_adjacent_coords(coord: &Coord, max_size: usize) -> Vec<Coord> {
     let mut adjacent_coords = Vec::new();
@@ -290,4 +345,16 @@ pub fn get_adjacent_coords(coord: &Coord, max_size: usize) -> Vec<Coord> {
     }
 
     adjacent_coords
+}
+
+fn dist_squared(a: &Coord, b: &Coord) -> f32 {
+    let dx = b.x - a.x;
+    let dy = b.y - a.y;
+    (dx * dx + dy * dy) as f32
+}
+
+fn dist(a: &Coord, b: &Coord) -> f32 {
+    let dx = b.x - a.x;
+    let dy = b.y - a.y;
+    ((dx * dx + dy * dy) as f32).sqrt()
 }
