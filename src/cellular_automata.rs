@@ -1,5 +1,6 @@
 use crate::{
-    types::{Blank, FMap, UMap8},
+    map_data::MapData,
+    types::{Blank, Coord, FMap, UMap8},
     PlanetOptions,
 };
 use rand::{rngs::StdRng, Rng, SeedableRng};
@@ -21,8 +22,12 @@ fn precompute_circle_offsets(radius: u32) -> Vec<(i32, i32)> {
     offsets
 }
 
-pub fn simulate_ca(options: &PlanetOptions, _map: &UMap8, altitude: &FMap) -> UMap8 {
-    let mut map1: UMap8 = random_distribution(options.resolution(), options.weight);
+pub fn simulate_ca(options: &PlanetOptions, initial_state: UMap8, map_data: &MapData) -> UMap8 {
+
+
+    // these get mem swapped
+    // let mut map1: UMap8 = random_distribution(options.resolution(), options.weight);
+    let mut map1 = initial_state;
     let mut map2 = UMap8::blank(options.resolution() as usize);
 
     let iters = if options.ca_iterations % 2 != 0 {
@@ -37,11 +42,8 @@ pub fn simulate_ca(options: &PlanetOptions, _map: &UMap8, altitude: &FMap) -> UM
         map2.par_iter_mut().enumerate().for_each(|(y, row)| {
             for xx in 0..options.resolution() {
                 let x = xx as usize;
-                // let n = get_neighboring_wall_tile_count_diagonal(&x, &(y as usize), &map1);
 
-                // let distance = altitude[y][x as usize];
-
-                let d = decision(&x, &(y as usize), &map1, &altitude, &options, &offsets);
+                let d = decision(&x, &(y as usize), &map1, &map_data.altitude_field, &options, &offsets);
 
                 if d {
                     row[x] = 0;
@@ -53,20 +55,6 @@ pub fn simulate_ca(options: &PlanetOptions, _map: &UMap8, altitude: &FMap) -> UM
 
         std::mem::swap(&mut map1, &mut map2);
     }
-
-    // for _i in 1..iters {
-    //     map2.par_iter_mut().enumerate().for_each(|(y, row)| {
-    //         row.par_iter_mut().enumerate().for_each(|(x, cell)| {
-    //             let d = decision(&x, &(y as usize), &map1, &altitude, &options);
-    //             if d {
-    //                 *cell = 0;
-    //             } else {
-    //                 *cell = 1;
-    //             }
-    //         });
-    //     });
-    //     std::mem::swap(&mut map1, &mut map2);
-    // }
 
     if options.invert_ca {
         for y in 0..options.resolution() {
@@ -83,28 +71,99 @@ pub fn simulate_ca(options: &PlanetOptions, _map: &UMap8, altitude: &FMap) -> UM
     map1
 }
 
+// pub fn _simulate_ca(options: &PlanetOptions, _map: &UMap8, altitude: &FMap) -> UMap8 {
+   
+//     // these get swapped
+//     let mut map1: UMap8 = random_distribution(options.resolution(), options.weight);
+//     let mut map2 = UMap8::blank(options.resolution() as usize);
+
+//     let iters = if options.ca_iterations % 2 != 0 {
+//         options.ca_iterations + 1
+//     } else {
+//         options.ca_iterations
+//     };
+
+//     let offsets = precompute_circle_offsets(options.ca_search_radius);
+
+//     for _i in 1..iters {
+//         map2.par_iter_mut().enumerate().for_each(|(y, row)| {
+//             for xx in 0..options.resolution() {
+//                 let x = xx as usize;
+//                 // let n = get_neighboring_wall_tile_count_diagonal(&x, &(y as usize), &map1);
+//                 // let distance = altitude[y][x as usize];
+//                 let d = _decision(&x, &(y as usize), &map1, &altitude, &options, &offsets);
+
+//                 if d {
+//                     row[x] = 0;
+//                 } else {
+//                     row[x] = 1;
+//                 }
+//             }
+//         });
+
+//         std::mem::swap(&mut map1, &mut map2);
+//     }
+
+//     if options.invert_ca {
+//         for y in 0..options.resolution() {
+//             for x in 0..options.resolution() {
+//                 map1[y as usize][x as usize] = if map1[y as usize][x as usize] == 0 {
+//                     1
+//                 } else {
+//                     0
+//                 };
+//             }
+//         }
+//     }
+
+//     map1
+// }
+
 fn decision(
     x: &usize,
     y: &usize,
     img: &Vec<Vec<u8>>,
     altitude: &FMap,
     options: &PlanetOptions,
-    circle_offsets: &Vec<(i32, i32)>
+    circle_offsets: &Vec<(i32, i32)>,
 ) -> bool {
     // let result = get_neighboring_wall_tile_count_diagonal(x, y, img);
     // let result = get_neighboring_wall_tile_count_horizontal_and_vertical(x, y, img);
-
-    // println!("{:?}", options.ca_search_radius);
-    let result =
-        get_neighboring_wall_tile_count_within_radius_circle(x, y, img, options.ca_search_radius, circle_offsets);
+    let result = get_neighboring_wall_tile_count_within_radius_circle(
+        x,
+        y,
+        img,
+        options.ca_search_radius,
+        circle_offsets,
+    );
     // let result = get_neighboring_wall_tile_count_within_radius_circle(x, y, img, 3);
 
     let a: i32 = (altitude[*y][*x] as i32) * options.ca_misc;
-
-    // dbg!(a);
-
     let thresh: i32 = options.thresh as i32 + a;
+    result > thresh as u32
+}
 
+fn _decision(
+    x: &usize,
+    y: &usize,
+    img: &Vec<Vec<u8>>,
+    altitude: &FMap,
+    options: &PlanetOptions,
+    circle_offsets: &Vec<(i32, i32)>,
+) -> bool {
+    // let result = get_neighboring_wall_tile_count_diagonal(x, y, img);
+    // let result = get_neighboring_wall_tile_count_horizontal_and_vertical(x, y, img);
+    let result = get_neighboring_wall_tile_count_within_radius_circle(
+        x,
+        y,
+        img,
+        options.ca_search_radius,
+        circle_offsets,
+    );
+    // let result = get_neighboring_wall_tile_count_within_radius_circle(x, y, img, 3);
+
+    let a: i32 = (altitude[*y][*x] as i32) * options.ca_misc;
+    let thresh: i32 = options.thresh as i32 + a;
     result > thresh as u32
 }
 
@@ -136,7 +195,6 @@ fn get_neighboring_wall_tile_count_within_radius_circle(
 
     count
 }
-
 
 // fn get_neighboring_wall_tile_count_within_radius_circle(
 //     x: &usize,
@@ -206,25 +264,21 @@ fn get_neighboring_wall_tile_count_horizontal_and_vertical(
     let height = img[0].len() as usize;
     let mut count: u32 = 0;
 
-    // Check left neighbor
     if *x > 0 {
         let neighbor = img[x - 1][*y];
         count += neighbor as u32;
     }
 
-    // Check right neighbor
     if *x < width - 1 {
         let neighbor = img[x + 1][*y];
         count += neighbor as u32;
     }
 
-    // Check top neighbor
     if *y > 0 {
         let neighbor = img[*x][y - 1];
         count += neighbor as u32;
     }
 
-    // Check bottom neighbor
     if *y < height - 1 {
         let neighbor = img[*x][y + 1];
         count += neighbor as u32;
@@ -242,7 +296,7 @@ fn get_neighboring_wall_tile_count_diagonal(x: &usize, y: &usize, img: &Vec<Vec<
     for dy in -1..=1 {
         for dx in -1..=1 {
             if dx == 0 && dy == 0 {
-                continue; // Skip the center pixel
+                continue;
             }
 
             let nx = *x as i32 + dx;

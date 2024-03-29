@@ -4,11 +4,18 @@ use crate::types::UMap8;
 
 pub type TileMap = Vec<Vec<Tile>>;
 pub trait FromUMap<T: PartialEq> {
+    fn blank(r: usize) -> TileMap;
     fn from_u_map(from: &Vec<Vec<T>>) -> TileMap;
-    fn rooms_planet_combiner(planet: &UMap8, rooms: &UMap8) -> TileMap;
+    fn from_planet_and_caves(planet: &UMap8, rooms: &UMap8) -> TileMap;
 }
 
 impl FromUMap<u8> for TileMap {
+
+
+    fn blank(r: usize) -> TileMap {
+        vec![vec![Tile::Space; r]; r]    
+    }
+
     fn from_u_map(from: &Vec<Vec<u8>>) -> TileMap {
         from.iter()
             .map(|row| {
@@ -19,7 +26,7 @@ impl FromUMap<u8> for TileMap {
             .collect()
     }
 
-    fn rooms_planet_combiner(planet: &UMap8, rooms: &UMap8) -> TileMap {
+    fn from_planet_and_caves(planet: &UMap8, rooms: &UMap8) -> TileMap {
         assert!(planet.len() == rooms.len());
         assert!(planet[0].len() == rooms[0].len());
         assert!(planet.len() == planet[0].len());
@@ -66,122 +73,122 @@ pub enum Status{
     Undesignated,
 }
 
-pub trait TileMapDebug {
-    fn debug_print_coords(&self);
-    fn debug_print(&self);
-}
+// pub trait TileMapDebug {
+//     fn debug_print_coords(&self);
+//     fn debug_print(&self);
+// }
 
-impl TileMapDebug for Vec<Vec<Tile>> {
-    fn debug_print_coords(&self) {
+// impl TileMapDebug for Vec<Vec<Tile>> {
+//     fn debug_print_coords(&self) {
 
-        println!("");
+//         println!("");
 
-        let mut result = String::new();
-        result.push_str("tile map: \n");
-        for (_y, row) in self.iter().enumerate() {
-            for (_x, _tile) in row.iter().enumerate() {
-                // let s_x = format!("{:02}", x);
-                // let s_y = format!("{:02}", y);
-                // result.push_str(&s_x);
-                // result.push(',');
-                // result.push_str(&s_y);
-                // result.push(' ');
-                // result.push(tile.x)
-            }
-            result.push('\n');
-        }
+//         let mut result = String::new();
+//         result.push_str("tile map: \n");
+//         for (_y, row) in self.iter().enumerate() {
+//             for (_x, _tile) in row.iter().enumerate() {
+//                 // let s_x = format!("{:02}", x);
+//                 // let s_y = format!("{:02}", y);
+//                 // result.push_str(&s_x);
+//                 // result.push(',');
+//                 // result.push_str(&s_y);
+//                 // result.push(' ');
+//                 // result.push(tile.x)
+//             }
+//             result.push('\n');
+//         }
 
-        println!("{}", result);
-    }
+//         println!("{}", result);
+//     }
 
-    fn debug_print(&self) {
-        let mut result = String::new();
-        result.push_str("tile map: \n");
-        for (y, column) in self.iter().enumerate() {
-            for (x, _) in column.iter().enumerate() {
-                let tile = self[x][y];
-                let symbol = match tile {
-                    Tile::Space => " ".to_string(),
-                    Tile::Wall => ".".to_string(),
-                    Tile::Surface => "*".to_string(),
-                    Tile::Room(value) => match value {
-                        Status::Designated(v) => format!("{:1} ", v).trim().to_string(),
-                        Status::Undesignated => "!".to_string(),
+//     fn debug_print(&self) {
+//         let mut result = String::new();
+//         result.push_str("tile map: \n");
+//         for (y, column) in self.iter().enumerate() {
+//             for (x, _) in column.iter().enumerate() {
+//                 let tile = self[x][y];
+//                 let symbol = match tile {
+//                     Tile::Space => " ".to_string(),
+//                     Tile::Wall => ".".to_string(),
+//                     Tile::Surface => "*".to_string(),
+//                     Tile::Room(value) => match value {
+//                         Status::Designated(v) => format!("{:1} ", v).trim().to_string(),
+//                         Status::Undesignated => "!".to_string(),
 
-                        // Some(v) => (format!("{:1} ", v)).trim().to_string(),
-                        // None => "!".to_string(),
-                    },
-                    Tile::RoomEdge(_) => "e".to_string(),
-                    Tile::RoomCenter(_) => {
+//                         // Some(v) => (format!("{:1} ", v)).trim().to_string(),
+//                         // None => "!".to_string(),
+//                     },
+//                     Tile::RoomEdge(_) => "e".to_string(),
+//                     Tile::RoomCenter(_) => {
 
-                        "c".to_string()
-                    },
-                    Tile::Tunnel(_) => "@".to_string()
-                };
-                result.push_str(&symbol);
-                result.push(' '); // Add space after each symbol
-            }
-            result.push('\n');
-        }
+//                         "c".to_string()
+//                     },
+//                     Tile::Tunnel(_) => "@".to_string()
+//                 };
+//                 result.push_str(&symbol);
+//                 result.push(' '); // Add space after each symbol
+//             }
+//             result.push('\n');
+//         }
 
-        println!("{}", result);
-    }
-}
+//         println!("{}", result);
+//     }
+// }
 
-pub trait MapDebug {
-    fn debug_print_raw(&self);
-    fn debug_print_pretty(&self);
-}
+// pub trait MapDebug {
+//     fn debug_print_raw(&self);
+//     fn debug_print_pretty(&self);
+// }
 
-impl MapDebug for UMap8 {
-    fn debug_print_raw(&self) {
-        let mut result = String::new();
+// impl MapDebug for UMap8 {
+//     fn debug_print_raw(&self) {
+//         let mut result = String::new();
 
-        let f = format!("UMap8 debug: \n length: {}\n", self.len());
-        result.push_str(&f);
+//         let f = format!("UMap8 debug: \n length: {}\n", self.len());
+//         result.push_str(&f);
 
-        for row in self.iter() {
-            for tile in row.iter() {
-                let v = *tile.min(&9);
-                let c = char::from_digit(v as u32, 10).unwrap_or(' '); // Clamped at 9 and replaced with space if out of range
-                result.push_str(format!("{} ", c).as_str());
-            }
-            result.push('\n');
-        }
-        println!("{}", result);
-    }
+//         for row in self.iter() {
+//             for tile in row.iter() {
+//                 let v = *tile.min(&9);
+//                 let c = char::from_digit(v as u32, 10).unwrap_or(' '); // Clamped at 9 and replaced with space if out of range
+//                 result.push_str(format!("{} ", c).as_str());
+//             }
+//             result.push('\n');
+//         }
+//         println!("{}", result);
+//     }
 
-    fn debug_print_pretty(&self) {
-        let mut result = String::new();
+//     fn debug_print_pretty(&self) {
+//         let mut result = String::new();
 
-        let f = format!("UMap8 debug pretty: \n length: {}\n", self.len());
-        result.push_str(&f);
+//         let f = format!("UMap8 debug pretty: \n length: {}\n", self.len());
+//         result.push_str(&f);
 
-        for x in 0..self.len() {
-            for y in 0..self[x].len() {
-                let value = self[y][x];
-                match value {
-                    0 => result.push('.'),
-                    1 => result.push('#'),
-                    _ => result.push('!'),
-                }
-                result.push(' ');
-            }
-            result.push('\n');
-        }
-        println!("{}", result);
+//         for x in 0..self.len() {
+//             for y in 0..self[x].len() {
+//                 let value = self[y][x];
+//                 match value {
+//                     0 => result.push('.'),
+//                     1 => result.push('#'),
+//                     _ => result.push('!'),
+//                 }
+//                 result.push(' ');
+//             }
+//             result.push('\n');
+//         }
+//         println!("{}", result);
 
-        // for row in self.iter() {
-        //     for tile in row.iter() {
-        //         match tile {
-        //             0 => result.push('.'),
-        //             1 => result.push('#'),
-        //             _ => result.push('!'),
-        //         }
-        //         result.push(' ');
-        //     }
-        //     result.push('\n');
-        // }
-        // println!("{}", result);
-    }
-}
+//         // for row in self.iter() {
+//         //     for tile in row.iter() {
+//         //         match tile {
+//         //             0 => result.push('.'),
+//         //             1 => result.push('#'),
+//         //             _ => result.push('!'),
+//         //         }
+//         //         result.push(' ');
+//         //     }
+//         //     result.push('\n');
+//         // }
+//         // println!("{}", result);
+//     }
+// }

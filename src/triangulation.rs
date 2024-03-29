@@ -6,10 +6,7 @@ use petgraph::{
     graph::{NodeIndex, UnGraph},
 };
 
-use crate::{room::Room, types::Coord};
-
-// triangulation: Triangulation,
-//     mst: Vec<Element<usize, f32>>,
+use crate::{bit_map, room::Room, types::Coord};
 
 pub struct RoomTriangulation {
     rooms: Vec<Room>,
@@ -40,7 +37,7 @@ pub fn delaunate_rooms(rooms: &Vec<Room>) -> Result<Triangulation> {
     Ok(t)
 }
 
-pub fn _calculate_mst(
+fn calculate_mst(
     triangle_edge_indices: &Vec<(usize, usize)>,
     room_centers: &Vec<Coord>,
 ) -> Vec<Element<usize, f32>> {
@@ -56,7 +53,7 @@ pub fn _calculate_mst(
         .enumerate()
         .for_each(|(_, edge)| {
             {
-                let cost = dist_squared(&room_centers[edge.0], &room_centers[edge.1]);
+                let cost = bit_map::dist_squared(&room_centers[edge.0], &room_centers[edge.1]);
                 graph.add_edge(node_indexes[edge.0], node_indexes[edge.1], cost);
             }
         });
@@ -83,19 +80,20 @@ pub fn get_triangle_edge_indeces(tr: &Triangulation) -> Vec<(usize, usize)> {
     out
 }
 
-pub fn find_mst_indexes(tr: &Triangulation, rooms: &Vec<Room>) -> Vec<(usize, usize)> {
+pub fn mst_indexes_by_index(tr: &Triangulation, rooms: &Vec<Room>) -> Vec<(usize, usize)> {
     let room_centers = rooms.iter().map(|room| room.center).collect::<Vec<_>>();
     let edge_indices = get_triangle_edge_indeces(&tr);
-    let mst = _calculate_mst(&edge_indices, &room_centers);
-    let mut out: Vec<(usize, usize)> = Vec::new();
-
-    for edge in &mst {
+    let mst = calculate_mst(&edge_indices, &room_centers);
+    
+    mst.iter()
+    .filter_map(|edge| {
         if let Element::Edge { source, target, .. } = edge {
-            out.push((*source, *target));
+            Some((*source, *target))
+        } else {
+            None
         }
-    }
-
-    out
+    })
+    .collect()    
 }
 
 pub fn mst_to_coords(rooms: &Vec<Room>, tr: &Triangulation) -> Vec<(Coord, Coord)> {
@@ -104,9 +102,7 @@ pub fn mst_to_coords(rooms: &Vec<Room>, tr: &Triangulation) -> Vec<(Coord, Coord
 
         let room_centers = rooms.iter().map(|room| room.center).collect::<Vec<_>>();
         let edge_indeces = get_triangle_edge_indeces(&tr);
-        
-        
-        let mst = _calculate_mst(&edge_indeces, &room_centers);
+        let mst = calculate_mst(&edge_indeces, &room_centers);
 
         for edge in mst {
             match edge {
@@ -128,25 +124,13 @@ pub fn mst_to_coords(rooms: &Vec<Room>, tr: &Triangulation) -> Vec<(Coord, Coord
 
 pub fn triangulation_to_coords(tr: &Triangulation, rooms: &Vec<Room>) -> Vec<(Coord, Coord)> {
     let edge_indeces = get_triangle_edge_indeces(&tr);
-    let mut out: Vec<(Coord, Coord)> = vec![];
-
-    for e in edge_indeces {
-        let a = rooms[e.0].center;
-        let b = rooms[e.1].center;
-        out.push((a, b))
-    }
-
-    out
-}
-
-fn dist_squared(a: &Coord, b: &Coord) -> f32 {
-    let dx = a.x as i32 - b.x as i32;
-    let dy = a.y as i32 - b.y as i32;
-    (dx * dx + dy * dy) as f32
-}
-
-fn dist(a: &Coord, b: &Coord) -> f32 {
-    let dx = a.x as i32 - b.x as i32;
-    let dy = a.y as i32 - b.y as i32;
-    ((dx * dx + dy * dy) as f32).sqrt()
+   
+    let a:Vec<(Coord, Coord)> = edge_indeces.iter().map(|e| {
+        (
+            rooms[e.0].center,
+            rooms[e.1].center
+        )
+    }).collect();
+    a
+    
 }

@@ -1,7 +1,9 @@
 use glam::Vec2;
 use num_traits::{AsPrimitive, Float};
-use rand::{rngs::StdRng, Rng, SeedableRng};
+use rand::{distributions::Uniform, rngs::StdRng, Rng, SeedableRng};
 use std::f32::consts::PI;
+
+use crate::types::FMap;
 
 pub fn circle(center: Vec2, radius: f32, num_segments: usize) -> Vec<Vec2> {
     let mut points = Vec::with_capacity(num_segments);
@@ -86,6 +88,36 @@ pub fn random_distribution(resolution: u32, weight: f32) -> Vec<Vec<u8>> {
         for x in 0..resolution {
             let random_value: f32 = rng.gen(); // Generates a float between 0 and 1.
             img[y as usize][x as usize] = if random_value < weight { 1 } else { 0 };
+        }
+    }
+
+    img
+}
+
+
+pub fn random_distribution_mask_weighted(resolution: u32, weight: f32, mask: &Vec<Vec<f32>>, invert_mask: bool) -> Vec<Vec<u8>> {
+    let mut img: Vec<Vec<u8>> = vec![vec![0; resolution as usize]; resolution as usize];
+    let mut rng = StdRng::seed_from_u64(1);
+    let range = Uniform::new(0.0, 1.0);
+
+    for y in 0..resolution {
+        for x in 0..resolution {
+            let random_value: f32 = rng.sample(&range);
+            let mask_value = mask[y as usize][x as usize];
+            let adjusted_weight = if invert_mask {
+                if mask_value > 0.0 {
+                    weight * (1.0 + mask_value)
+                } else {
+                    weight * (1.0 - mask_value)
+                }
+            } else {
+                if mask_value > 0.0 {
+                    weight * (1.0 - mask_value)
+                } else {
+                    weight * (1.0 + mask_value)
+                }
+            };
+            img[y as usize][x as usize] = if random_value < adjusted_weight { 1 } else { 0 };
         }
     }
 

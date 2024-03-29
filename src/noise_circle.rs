@@ -3,7 +3,7 @@ use noise::{Fbm, MultiFractal, NoiseFn, Perlin};
 
 
 use crate::{
-    types::{Blank, FMap, FractalNoiseOptions, UMap8},
+    types::{Blank, Coord, FMap, FractalNoiseOptions, UMap8},
     utils::{ang, circular_coord, dist, mapf64},
 };
 
@@ -21,6 +21,7 @@ pub fn generate_fbm_circle(
     let radius = resolution as f32 * 0.4 * radius as f32;
     let center = (resolution / 2, resolution / 2);
     
+    // let mut surface: Vec<Coord> = Vec::new(); 
     let mut map = UMap8::blank(resolution as usize);
     let mut altitude_field: FMap = FMap::blank(resolution as usize);
     let mut depth_field: FMap = FMap::blank(resolution as usize);
@@ -38,13 +39,19 @@ pub fn generate_fbm_circle(
 
             let dist = dist(center, (x, y));
             let altitude = dist / radius;
-            let depth = dist / (radius + noise_offset);
+            let depth = dist / (radius - noise_offset);
 
-            map[x as usize][y as usize] = (dist < (radius + noise_offset)) as u8;
+            // if (dist - (radius - noise_offset)).abs() < 1. {
+            //     surface.push(Coord{x:x as usize, y: y as usize});
+            // }
+
+            map[x as usize][y as usize] = (dist < (radius - noise_offset)) as u8;
             altitude_field[x as usize][y as usize] = altitude;
             depth_field[x as usize][y as usize] = depth;
         }
     }
+
+    // println!("surface len {}", surface.len());
 
     Ok((map, altitude_field, depth_field))
 }

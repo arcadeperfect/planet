@@ -1,17 +1,18 @@
 use crate::{
     room::Room,
     tile_map::{Tile, TileMap},
-    triangulation::{delaunate_rooms, find_mst_indexes},
+    triangulation::{delaunate_rooms, mst_indexes_by_index, triangulation_to_coords},
     types::Coord,
 };
 use anyhow::Result;
 use delaunator::Triangulation;
 
-
 #[derive(Debug, Clone)]
 pub struct Roooms {
+    /// the room structs
     pub rooms: Vec<Room>,
     triangulation: Option<Triangulation>,
+    /// the mininum spanning tree represented as index pairs of the rooms
     pub mst: Option<Vec<(usize, usize)>>,
 }
 
@@ -46,7 +47,7 @@ impl Roooms {
         let mut mst = None;
 
         if let Some(tr) = &tri {
-            mst = Some(find_mst_indexes(&tr, &rooms));
+            mst = Some(mst_indexes_by_index(&tr, &rooms));
         }
         Ok(Roooms {
             rooms,
@@ -69,16 +70,11 @@ impl Roooms {
         vec![]
     }
 
-}
-
-fn dist_squared(a: &Coord, b: &Coord) -> f32 {
-    let dx = a.x as i32 - b.x as i32;
-    let dy = a.y as i32 - b.y as i32;
-    (dx * dx + dy * dy) as f32
-}
-
-fn dist(a: &Coord, b: &Coord) -> f32 {
-    let dx = a.x as i32 - b.x as i32;
-    let dy = a.y as i32 - b.y as i32;
-    ((dx * dx + dy * dy) as f32).sqrt()
+    pub fn get_triangulation_coords(&self) -> Option<Vec<(Coord, Coord)>> {
+        if let Some(tr) = &self.triangulation {
+            Some(triangulation_to_coords(tr, &self.rooms))
+        } else {
+            None
+        }
+    }
 }

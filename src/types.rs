@@ -34,39 +34,42 @@ impl Blank for FMap {
 
 #[derive(Clone, Debug)]
 pub struct PlanetMap {
-    resolution: usize,
-    pub main: Option<UMap8>,
+    pub resolution: usize,
+    pub main: UMap8,
     pub rooms_raw: Option<UMap8>,
     pub edges: Option<UMap8>,
-    pub altitude: Option<FMap>,
-    pub depth: Option<FMap>,
+    pub altitude: FMap,
+    pub depth: FMap,
     pub edge_distance_field: Option<FMap>,
+    pub mask: Option<FMap>,
 }
 
 impl PlanetMap {
     pub fn blank(resolution: usize) -> Self {
         PlanetMap {
             resolution,
-            main: Some(vec![vec![0; resolution]; resolution]),
+            main: vec![vec![0; resolution]; resolution],
             rooms_raw: Some(vec![vec![0; resolution]; resolution]),
             edges: Some(vec![vec![0; resolution]; resolution]),
-            altitude: Some(vec![vec![0.; resolution]; resolution]),
-            depth: Some(vec![vec![0.; resolution]; resolution]),
+            altitude: vec![vec![0.; resolution]; resolution],
+            depth: vec![vec![0.; resolution]; resolution],
             edge_distance_field: Some(vec![vec![0.; resolution]; resolution]),
+            mask: Some(vec![vec![0.; resolution]; resolution]),
         }
     }
 
-    pub fn empty(resolution: usize) -> Self {
-        PlanetMap {
-            resolution,
-            main: None,
-            rooms_raw: None,
-            edges: None,
-            altitude: None,
-            depth: None,
-            edge_distance_field: None,
-        }
-    }
+    // pub fn empty(resolution: usize) -> Self {
+    //     PlanetMap {
+    //         resolution,
+    //         main: None,
+    //         rooms_raw: None,
+    //         edges: None,
+    //         altitude: None,
+    //         depth: None,
+    //         edge_distance_field: None,
+    //         mask: None,
+    //     }
+    // }
 }
 
 #[derive(Clone, Debug)]
@@ -88,6 +91,7 @@ pub struct PlanetOptions {
     pub global_amplitude: f32,
     pub displacement_scale: f64,
     pub displacement_frequency: f64,
+    pub rooms: bool
 }
 
 impl PlanetOptions {
@@ -109,6 +113,7 @@ impl PlanetOptions {
         global_amplitude: f32,
         displacement_scale: f64,
         displacement_frequency: f64,
+        rooms: bool
     ) -> Self {
         Self {
             seed,
@@ -128,6 +133,7 @@ impl PlanetOptions {
             global_amplitude,
             displacement_scale,
             displacement_frequency,
+            rooms
         }
     }
 
@@ -156,6 +162,7 @@ impl Default for PlanetOptions {
             global_amplitude: 1.0,
             displacement_scale: 1.0,
             displacement_frequency: 1.0,
+            rooms: false
         }
     }
 }
@@ -277,3 +284,4 @@ impl DebugPrint for Vec<Room> {
         // }
     }
 }
+

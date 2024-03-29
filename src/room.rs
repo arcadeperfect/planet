@@ -1,5 +1,5 @@
 use crate::{
-    bit_map::{average_center, max_inscribed_circle}, tile_map::{Status, Tile, TileMap, TileMapDebug}, types::Coord
+    bit_map::{average_center, max_inscribed_circle}, debug_print::TileMapDebug, tile_map::{Status, Tile, TileMap}, types::Coord
 };
 use std::collections::{HashSet, VecDeque};
 

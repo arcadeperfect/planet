@@ -6,15 +6,13 @@ use imageproc::filter::gaussian_blur_f32;
 
 
 use crate::{
-    noise_circle::generate_fbm_circle,
-    types::{Coord, FMap, FractalNoiseOptions, UMap8},
-    PlanetOptions,
+    noise_circle::generate_fbm_circle, types::{Blank, Coord, FMap, FractalNoiseOptions, UMap8}, utils, PlanetOptions
 };
 
 pub fn get_initial_planet_map(
     options: &PlanetOptions,
     fractal_options: Vec<&FractalNoiseOptions>,
-) -> Result<(UMap8, FMap, FMap)> {
+) -> Result<(UMap8, FMap, FMap, FMap)> {
     let (map, field, depth) = generate_fbm_circle(
         options.radius,
         options.resolution,
@@ -26,34 +24,23 @@ pub fn get_initial_planet_map(
         options.displacement_frequency,
     )?;
 
-    Ok((map, field, depth))
+    let surface_distance_field = get_surface_distance_field(&map, &get_surface(&map));
+
+
+
+    Ok((map, field, depth, surface_distance_field))
 }
 pub fn umap_to_image_buffer(input: &UMap8) -> RgbaImage {
 
-
-    // input.debug_print();
-
-    // Determine the dimensions of the input matrix
     let height = input.len();
     let width = if height > 0 { input[0].len() } else { 0 };
-
-    // Create a new RgbaImage with the same dimensions
     let mut image = RgbaImage::new(width as u32, height as u32);
 
     for (y, row) in input.iter().enumerate() {
         for (x, &value) in row.iter().enumerate() {
-            // Ensure the value is either 0 or 1
             assert!(value == 0 || value == 1, "Input values must be 0 or 1");
-
-            // Multiply by 255 to get the actual color value
             let color_value = value * 255;
-
-            // Create an Rgba pixel with the same value for R, G, and B, and full opacity for alpha
             let pixel = Rgba([color_value, color_value, color_value, 255]);
-
-            // Place the pixel in the corresponding position in the image
-            // Note: the y coordinate is calculated as (height - 1 - y) to flip the image vertically
-            // image.put_pixel((width -1 - x) as u32, (height - 1 - y) as u32, pixel);
             image.put_pixel((y) as u32, (x) as u32, pixel);
         }
     }
@@ -187,33 +174,6 @@ pub fn thick_line(start: &Coord, end: &Coord, thickness: usize) -> Vec<Coord> {
     points
 }
 
-
-// pub fn nearest_neighbor(a: Vec<Coord>, b: Vec<Coord>) -> (Coord, Coord){
-//     let mut dist = f32::MAX;
-//     let mut s_a = a[0];
-//     let mut s_b = b[0];
-//     for c_a in &a{
-//         for c_b in &b{
-//             let d = dist_squared(&c_a, &c_b);
-//             if d < dist {
-//                 dist = d;
-//                 s_a = *c_a;
-//                 s_b = *c_b;
-//             }
-//         }
-//     }
-//     (s_a, s_b)
-// }
-
-
-
-
-// fn dist_squared(a: &Coord, b: &Coord) -> f32 {
-//     let dx = b.x - a.x;
-//     let dy = b.y - a.y;
-//     (dx * dx + dy * dy) as f32
-// }
-
 pub fn max_inscribed_circle(tiles: &[Coord], edges: &[usize]) -> Coord {
 
     let edges_hash: HashSet<Coord> = edges.iter().map(|&i| tiles[i]).collect();
@@ -247,8 +207,6 @@ pub fn max_inscribed_circle(tiles: &[Coord], edges: &[usize]) -> Coord {
         if min_d > max_min_d {
             max_min_d = min_d;
             center = tile;
-            // center.x = tile.y;
-            // center.y = tile.x;
         }
     }
     center
@@ -276,14 +234,98 @@ pub fn edge_average_center(tiles: &[Coord], edges: &[usize]) -> Coord {
     }
 }
 
-fn dist_squared(a: &Coord, b: &Coord) -> f32 {
+pub fn dist_squared(a: &Coord, b: &Coord) -> f32 {
     let dx = b.x - a.x;
     let dy = b.y - a.y;
     (dx * dx + dy * dy) as f32
 }
 
-fn dist(a: &Coord, b: &Coord) -> f32 {
+pub fn dist(a: &Coord, b: &Coord) -> f32 {
     let dx = b.x - a.x;
     let dy = b.y - a.y;
     ((dx * dx + dy * dy) as f32).sqrt()
+}
+
+fn get_surface_distance_field(map: &UMap8, surface: &Vec<Coord>) -> FMap {
+
+    let mut out = FMap::blank(map.len());
+
+    for x in 0..map.len() {
+        for y in 0..map.len() {
+            let tile = map[x][y];
+            if tile == 0 {
+                continue;
+            }
+
+            let mut min_dist = f32::MAX;
+            let mut closest = Coord::default();
+
+            for coord in surface{
+                
+                let dist = dist(&Coord{x: x, y: y}, &coord);
+
+                if dist < min_dist {
+                    min_dist = dist;
+                    closest = coord.clone();
+                }
+            }
+
+            // println!("{}", min_dist);
+            out[x][y] = min_dist;
+            
+        }
+    }
+    out
+}
+
+
+fn get_surface(map: &UMap8) -> Vec<Coord> {
+    let mut out = Vec::new();
+
+    for x in 0..map.len() {
+        for y in 0..map.len() {
+            let v = map[x][y];
+            if check_neighbors_horizonatl_or_vertical(x, y, &map) {
+                out.push(Coord { x, y });
+            }
+        }
+    }
+    out
+}
+
+fn check_neighbors_horizonatl_or_vertical(x: usize, y: usize, map: &UMap8) -> bool {
+    if map[x][y] == 0 {
+        return false;
+    }
+
+    // left
+    if x > 0 {
+        if map[x - 1][y] == 0 {
+            return true;
+        }
+    }
+
+    // right
+    if x < map.len() - 1 {
+        if map[x + 1][y] == 0 {
+            return true;
+        }
+    }
+
+    // above
+    if y > 0 {
+        if map[x][y - 1] == 0 {
+            return true;
+        }
+    }
+
+    // below
+
+    if y < map.len() - 1 {
+        if map[x][y + 1] == 0 {
+            return true;
+        }
+    }
+
+    false
 }
