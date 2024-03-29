@@ -1,10 +1,10 @@
-use delaunator::Triangulation;
 use glam::{Vec2, Vec3};
 use image::{ImageBuffer, Rgba};
-use petgraph::data::Element;
 
 use crate::{
-    room::Room, roooms::Roooms, tile_map::TileMap, triangulation::{_calculate_mst, get_triangle_edge_indeces}, types::{Coord, PlanetMap}
+    roooms::Roooms,
+    tile_map::TileMap,
+    types::{Coord, PlanetMap},
 };
 
 #[derive(Clone, Debug)]
@@ -39,7 +39,6 @@ impl PlanetData {
     //         None => None,
     //     }
     // }
-    
 
     // pub fn get_mst(&self) -> Vec<(Coord, Coord)> {
 
@@ -141,4 +140,3 @@ fn flatten_and_zip(vertices: &Vec<Vec<Vec2>>) -> Vec<Vec3> {
         .map(|v| Vec3::new(v.x, v.y, 0.0))
         .collect()
 }
-

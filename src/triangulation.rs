@@ -6,7 +6,7 @@ use petgraph::{
     graph::{NodeIndex, UnGraph},
 };
 
-use crate::{room::Room, roooms::Roooms, types::Coord};
+use crate::{room::Room, types::Coord};
 
 // triangulation: Triangulation,
 //     mst: Vec<Element<usize, f32>>,
@@ -55,10 +55,10 @@ pub fn _calculate_mst(
         .iter()
         .enumerate()
         .for_each(|(_, edge)| {
-            ({
+            {
                 let cost = dist_squared(&room_centers[edge.0], &room_centers[edge.1]);
                 graph.add_edge(node_indexes[edge.0], node_indexes[edge.1], cost);
-            })
+            }
         });
 
     let mst = min_spanning_tree(&graph);

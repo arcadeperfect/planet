@@ -1,12 +1,7 @@
 #![allow(dead_code)]
 
 use crate::{
-    bit_map::{nearest_neighbor, simple_line, thick_line},
-    room::generate_rooms,
-    roooms::Roooms,
-    tile_map::{FromUMap, Tile, TileMap},
-    triangulation::{triangulation_to_coords, RoomTriangulation},
-    types::Coord,
+    bit_map::thick_line, room::closest_tiles, roooms::Roooms, tile_map::{FromUMap, Tile, TileMap}
 };
 use anyhow::Result;
 use bit_map::{apply_blur, get_initial_planet_map, umap_to_image_buffer};
@@ -17,6 +12,7 @@ use planet_data::PlanetData;
 pub use types::PlanetOptions;
 use types::{FMap, FractalNoiseOptions, PlanetMap, UMap8};
 
+mod nearest_neighbour;
 mod bit_map;
 mod cellular_automata;
 mod marching_squares;
@@ -52,44 +48,46 @@ impl PlanetBuilder {
         let (mut initial_planet_map, altitude_field, depth_field) =
             get_initial_planet_map(&options, fractal_options)?;
 
-        let mut cave_map_raw: UMap8 = simulate_ca(&options, &initial_planet_map, &depth_field);
-
+        let cave_map_raw: UMap8 = simulate_ca(&options, &initial_planet_map, &depth_field);
         let mut tile_map = TileMap::rooms_planet_combiner(&initial_planet_map, &cave_map_raw);
-
-        // let mut tilemap_copy = tile_map.clone();
-
-        // let rooms = generate_rooms(&mut tile_map);
-
-        // let room_container = RoomTriangulation::new(rooms);
-
         let roooms = Roooms::new(&mut tile_map).ok();
+        
+        if let Some(roomz) = &roooms {
 
-        // let triangulation = triangulation::delaunate_rooms(&roooms.rooms)
-        //     .ok()
-        //     .map(|triangulation| Some(triangulation))
-        //     .unwrap_or(None);
+            // for (x, (a, b)) in roomz.get_mst_as_coord().iter().enumerate() {
+            //     let l = thick_line(a, b, 3);
+            //     for p in l {
+            //         match tile_map[p.x][p.y] {
+            //             Tile::Wall => {
+            //                 tile_map[p.x][p.y] = Tile::Tunnel(x as u16);
+            //                 initial_planet_map[p.x][p.y] = 0;
+            //             }
+            //             _ => {}
+            //         }
+            //         // tile_map[p.x][p.y] = Tile::Space;
+            //     }
+            // }
 
-        // let mst = triangulation.as_ref().map(|tr| _mst_to_coords(tr, &rooms));
-        if let Some(rms) = &roooms {
-            
-                 
-                for (x, (a, b)) in rms.get_mst_as_coord().iter().enumerate() {
-                    
-                    let l = thick_line(a, b, 3);
+            if let Some(mst) = roomz.mst.as_ref(){
+
+                for z in mst{
+                    let r1 = &roomz.rooms[z.0];
+                    let r2 = &roomz.rooms[z.1];
+                    let c = closest_tiles(r1, r2);
+                    let l = thick_line(&c.0, &c.1, 3);
                     for p in l {
                         match tile_map[p.x][p.y] {
                             Tile::Wall => {
-                                tile_map[p.x][p.y] = Tile::Tunnel(x as u16);
+                                tile_map[p.x][p.y] = Tile::Tunnel(0);
                                 initial_planet_map[p.x][p.y] = 0;
                             }
                             _ => {}
                         }
-                        // tile_map[p.x][p.y] = Tile::Space;
                     }
                 }
-            
+            }
         }
-
+        
         let map_main: UMap8 = thresh_sub(
             &cave_map_raw,
             &initial_planet_map,
@@ -114,8 +112,6 @@ impl PlanetBuilder {
             planet_map: maps,
             poly_lines: polylines,
             tile_map: Some(tile_map),
-            // rooms: Some(rooms),
-            // triangulation: triangulation,
             mst: None,
             roooms,
         })

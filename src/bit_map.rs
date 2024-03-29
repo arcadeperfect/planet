@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use anyhow::Result;
 use image::{Rgba, RgbaImage};
 use imageproc::filter::gaussian_blur_f32;
@@ -186,28 +188,102 @@ pub fn thick_line(start: &Coord, end: &Coord, thickness: usize) -> Vec<Coord> {
 }
 
 
-pub fn nearest_neighbor(a: Vec<Coord>, b: Vec<Coord>) -> (Coord, Coord){
-    let mut dist = f32::MAX;
-    let mut s_a = a[0];
-    let mut s_b = b[0];
-    for c_a in &a{
-        for c_b in &b{
-            let d = dist_squared(&c_a, &c_b);
-            if d < dist {
-                dist = d;
-                s_a = *c_a;
-                s_b = *c_b;
-            }
+// pub fn nearest_neighbor(a: Vec<Coord>, b: Vec<Coord>) -> (Coord, Coord){
+//     let mut dist = f32::MAX;
+//     let mut s_a = a[0];
+//     let mut s_b = b[0];
+//     for c_a in &a{
+//         for c_b in &b{
+//             let d = dist_squared(&c_a, &c_b);
+//             if d < dist {
+//                 dist = d;
+//                 s_a = *c_a;
+//                 s_b = *c_b;
+//             }
+//         }
+//     }
+//     (s_a, s_b)
+// }
+
+
+
+
+// fn dist_squared(a: &Coord, b: &Coord) -> f32 {
+//     let dx = b.x - a.x;
+//     let dy = b.y - a.y;
+//     (dx * dx + dy * dy) as f32
+// }
+
+pub fn max_inscribed_circle(tiles: &[Coord], edges: &[usize]) -> Coord {
+
+    let edges_hash: HashSet<Coord> = edges.iter().map(|&i| tiles[i]).collect();
+    let mut center = Coord::default();
+    let mut max_min_d = f32::MIN;
+
+    if edges_hash.len() == tiles.len() {
+        let sum = tiles
+            .iter()
+            .fold((0, 0), |acc, coord| (acc.0 + coord.x, acc.1 + coord.y));
+        let count = tiles.len();
+        return Coord {
+            x: sum.0 / count,
+            y: sum.1 / count,
+        };
+    }
+
+    for &tile in tiles.iter().filter(|&&t| !edges_hash.contains(&t)) {
+        let min_d = edges
+            .iter()
+            .filter_map(|&i| {
+                let distance = dist_squared(&tile, &tiles[i]);
+                if distance.is_nan() {
+                    None
+                } else {
+                    Some(distance)
+                }
+            })
+            .fold(f32::INFINITY, f32::min); // We want the minimum distance to the edges
+
+        if min_d > max_min_d {
+            max_min_d = min_d;
+            center = tile;
+            // center.x = tile.y;
+            // center.y = tile.x;
         }
     }
-    (s_a, s_b)
+    center
 }
 
+pub fn average_center(tiles: &[Coord], edges: &[usize]) -> Coord {
 
+    let coord_average = tiles.iter().fold((0, 0), |acc, coord| (acc.0 + coord.x, acc.1 + coord.y));
+    let count = tiles.len();
+    Coord {
+        x: coord_average.0 / count,
+        y: coord_average.1 / count,
+    }
+}
 
+pub fn edge_average_center(tiles: &[Coord], edges: &[usize]) -> Coord {
+
+    let z: Vec<Coord> = edges.iter().map(|&i| tiles[i]).collect();
+
+    let coord_average = z.iter().fold((0, 0), |acc, coord| (acc.0 + coord.x, acc.1 + coord.y));
+    let count = tiles.len();
+    Coord {
+        x: coord_average.0 / count,
+        y: coord_average.1 / count,
+    }
+}
 
 fn dist_squared(a: &Coord, b: &Coord) -> f32 {
     let dx = b.x - a.x;
     let dy = b.y - a.y;
     (dx * dx + dy * dy) as f32
+}
+
+fn dist(a: &Coord, b: &Coord) -> f32 {
+    let dx = b.x - a.x;
+    let dy = b.y - a.y;
+    ((dx * dx + dy * dy) as f32).sqrt()
 }

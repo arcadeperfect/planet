@@ -1,6 +1,5 @@
 use crate::{
-    tile_map::{Status, Tile, TileMap, TileMapDebug},
-    types::Coord,
+    bit_map::{average_center, max_inscribed_circle}, tile_map::{Status, Tile, TileMap, TileMapDebug}, types::Coord
 };
 use std::collections::{HashSet, VecDeque};
 
@@ -108,7 +107,9 @@ impl Room {
     }
 
     fn calc_center(tiles: &Vec<Coord>, edges: &Vec<usize>) -> Coord {
-        get_center(tiles, edges)
+        // max_inscribed_circle(tiles, edges)
+        average_center(tiles, edges)
+        // get_center(tiles, edges)
     }
 
     pub fn get_min_max_coords(&self) -> (Coord, Coord) {
@@ -185,44 +186,44 @@ fn get_neighbouring_coords_diagonal(c: &Coord) -> Vec<Coord> {
     vec![*c + (1, 1), *c + (-1, 1), *c + (-1, -1), *c + (1, -1)]
 }
 
-fn get_center(tiles: &[Coord], edges: &[usize]) -> Coord {
-    let edges_hash: HashSet<Coord> = edges.iter().map(|&i| tiles[i]).collect();
-    let mut center = Coord::default();
-    let mut max_min_d = f32::MIN;
+// fn get_center(tiles: &[Coord], edges: &[usize]) -> Coord {
+//     let edges_hash: HashSet<Coord> = edges.iter().map(|&i| tiles[i]).collect();
+//     let mut center = Coord::default();
+//     let mut max_min_d = f32::MIN;
 
-    if edges_hash.len() == tiles.len() {
-        let sum = tiles
-            .iter()
-            .fold((0, 0), |acc, coord| (acc.0 + coord.x, acc.1 + coord.y));
-        let count = tiles.len();
-        return Coord {
-            x: sum.0 / count,
-            y: sum.1 / count,
-        };
-    }
+//     if edges_hash.len() == tiles.len() {
+//         let sum = tiles
+//             .iter()
+//             .fold((0, 0), |acc, coord| (acc.0 + coord.x, acc.1 + coord.y));
+//         let count = tiles.len();
+//         return Coord {
+//             x: sum.0 / count,
+//             y: sum.1 / count,
+//         };
+//     }
 
-    for &tile in tiles.iter().filter(|&&t| !edges_hash.contains(&t)) {
-        let min_d = edges
-            .iter()
-            .filter_map(|&i| {
-                let distance = dist_squared(&tile, &tiles[i]);
-                if distance.is_nan() {
-                    None
-                } else {
-                    Some(distance)
-                }
-            })
-            .fold(f32::INFINITY, f32::min); // We want the minimum distance to the edges
+//     for &tile in tiles.iter().filter(|&&t| !edges_hash.contains(&t)) {
+//         let min_d = edges
+//             .iter()
+//             .filter_map(|&i| {
+//                 let distance = dist_squared(&tile, &tiles[i]);
+//                 if distance.is_nan() {
+//                     None
+//                 } else {
+//                     Some(distance)
+//                 }
+//             })
+//             .fold(f32::INFINITY, f32::min); // We want the minimum distance to the edges
 
-        if min_d > max_min_d {
-            max_min_d = min_d;
-            center = tile;
-            // center.x = tile.y;
-            // center.y = tile.x;
-        }
-    }
-    center
-}
+//         if min_d > max_min_d {
+//             max_min_d = min_d;
+//             center = tile;
+//             // center.x = tile.y;
+//             // center.y = tile.x;
+//         }
+//     }
+//     center
+// }
 
 pub fn generate_rooms(tiles: &mut TileMap) -> Vec<Room> {
     let res = tiles.len();
@@ -358,3 +359,51 @@ fn dist(a: &Coord, b: &Coord) -> f32 {
     let dy = b.y - a.y;
     ((dx * dx + dy * dy) as f32).sqrt()
 }
+
+// pub fn nearest_neighbor(a: &Vec<Coord>, b: &Vec<Coord>) -> (Coord, Coord){
+//     let mut dist = f32::MAX;
+//     let mut s_a = a[0];
+//     let mut s_b = b[0];
+//     for c_a in &a{
+//         for c_b in &b{
+//             let d = dist_squared(&c_a, &c_b);
+//             if d < dist {
+//                 dist = d;
+//                 s_a = *c_a;
+//                 s_b = *c_b;
+//             }
+//         }
+//     }
+//     (s_a, s_b)
+// }
+
+
+
+
+pub fn closest_tiles(a: &Room, b: &Room) -> (Coord, Coord) {
+
+    let e1 = &a.edge_tile_indexes;
+    let e2 = &b.edge_tile_indexes;
+
+    let mut dist = f32::MAX;
+    let mut s_a: usize = 0;
+    let mut s_b: usize = 0;
+
+    for y in e1{
+        for z in e2{
+            let y_tile = a.tiles[*y];
+            let z_tile = b.tiles[*z];
+            let d = dist_squared(&y_tile, &z_tile);
+            if d < dist {
+                dist = d;
+                s_a = *y;
+                s_b = *z;
+            }
+        }
+
+    }
+
+    (a.tiles[s_a], b.tiles[s_b])
+
+}
+

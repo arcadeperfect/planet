@@ -1,14 +1,7 @@
+use crate::room::Room;
+use glam::Vec2;
+use serde::{Deserialize, Serialize};
 use std::ops::Add;
-
-use delaunator::Triangulation;
-use glam::{Vec2, Vec3};
-use image::{ImageBuffer, Rgba};
-
-use crate::{room::Room, TileMap};
-use serde::{Serialize, Deserialize};
-// pub type FloatImage = ImageBuffer<Rgba<f32>, Vec<f32>>;
-// pub type Map16 = Vec<Vec<u16>>;
-// pub type Map8 = Vec<Vec<u8>>;
 
 pub type PolyLine = Vec<Vec2>;
 pub type PolyLines = Vec<PolyLine>;
@@ -38,32 +31,6 @@ impl Blank for FMap {
         vec![vec![0.; resolution]; resolution]
     }
 }
-
-// #[derive(Clone, Debug)]
-// pub struct PlanetData {
-//     pub image: Option<ImageBuffer<Rgba<u8>, Vec<u8>>>,
-//     pub planet_map: PlanetMap,
-//     pub poly_lines: Vec<Vec<Vec2>>,
-//     pub tile_map: Option<TileMap>,
-//     pub rooms: Option<Vec<Room>>,
-//     // pub rooms_debug_image:Option<ImageBuffer<Rgba<u8>, Vec<u8>>>
-//     pub triangulation: Option<Triangulation>,
-// }
-
-// impl PlanetData {
-//     /// return the poly lines as a flattened list where each pair represents a line segment
-//     /// this results in a lot of doubled points, but this is how the shader likes it
-//     pub fn get_line_list(&self) -> Vec<Vec3> {
-//         flatten_and_zip(&self.poly_lines)
-//     }
-
-//     pub fn get_dimension(&self) -> Option<usize> {
-//         match &self.image {
-//             Some(_) => Some(self.tile_map.as_ref().unwrap().len()),
-//             None => None
-//         }
-//     }
-// }
 
 #[derive(Clone, Debug)]
 pub struct PlanetMap {
@@ -120,7 +87,7 @@ pub struct PlanetOptions {
     pub mask_z: f64,
     pub global_amplitude: f32,
     pub displacement_scale: f64,
-    pub displacement_frequency: f64
+    pub displacement_frequency: f64,
 }
 
 impl PlanetOptions {
@@ -141,7 +108,7 @@ impl PlanetOptions {
         mask_z: f64,
         global_amplitude: f32,
         displacement_scale: f64,
-        displacement_frequency: f64
+        displacement_frequency: f64,
     ) -> Self {
         Self {
             seed,
@@ -160,7 +127,7 @@ impl PlanetOptions {
             mask_z,
             global_amplitude,
             displacement_scale,
-            displacement_frequency
+            displacement_frequency,
         }
     }
 
@@ -188,11 +155,10 @@ impl Default for PlanetOptions {
             mask_z: 0.0,
             global_amplitude: 1.0,
             displacement_scale: 1.0,
-            displacement_frequency: 1.0
+            displacement_frequency: 1.0,
         }
     }
 }
-
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct FractalNoiseOptions {
@@ -215,7 +181,7 @@ impl Coord {
 
     pub fn into_world_normalized_vec2(self, r: &u32) -> Vec2 {
         Vec2::new(
-            self.x as f32 / *r as f32 * 2.0 - 1.0 ,
+            self.x as f32 / *r as f32 * 2.0 - 1.0,
             -(self.y as f32 / *r as f32 * 2.0 - 1.0),
         )
     }
@@ -225,13 +191,15 @@ impl Coord {
     }
 
     pub fn max() -> Coord {
-        Coord { x: usize::MAX, y: usize::MAX }
+        Coord {
+            x: usize::MAX,
+            y: usize::MAX,
+        }
     }
 
     pub fn min() -> Coord {
         Coord { x: 0, y: 0 }
     }
-
 }
 
 impl Add<(usize, usize)> for Coord {
@@ -284,7 +252,7 @@ impl DebugPrint for Vec<Room> {
 
         println!("Min: {} {} Max: {} {}", min.x, min.y, max.x, max.y);
 
-        for y in min.y..=max.y{
+        for y in min.y..=max.y {
             for x in min.x..=max.x {
                 let c = Coord { x, y };
                 if self.iter().any(|r| r.tiles.contains(&c)) {
@@ -307,6 +275,5 @@ impl DebugPrint for Vec<Room> {
         //     }
         //     println!("");
         // }
-        
     }
 }
