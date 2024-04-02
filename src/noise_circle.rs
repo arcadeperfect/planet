@@ -2,7 +2,7 @@ use anyhow::Result;
 use noise::{Fbm, MultiFractal, NoiseFn, Perlin};
 
 use crate::{
-    types::{Blank, Coord, FMap, FractalNoiseOptions, UMap8},
+    types::{Blank, FMap, FractalNoiseOptions, UMap8},
     utils::{ang, circular_coord, dist, mapf64},
 };
 

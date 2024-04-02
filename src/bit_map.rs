@@ -6,7 +6,7 @@ use imageproc::filter::gaussian_blur_f32;
 
 
 use crate::{
-    noise_circle::generate_fbm_circle, types::{Blank, Coord, FMap, FractalNoiseOptions, UMap8}, utils, PlanetOptions
+    noise_circle::generate_fbm_circle, types::{Blank, Coord, FMap, FractalNoiseOptions, UMap8}, PlanetOptions
 };
 
 pub fn get_initial_planet_map(
@@ -213,7 +213,7 @@ pub fn max_inscribed_circle(tiles: &[Coord], edges: &[usize]) -> Coord {
     center
 }
 
-pub fn average_center(tiles: &[Coord], edges: &[usize]) -> Coord {
+pub fn average_center(tiles: &[Coord]) -> Coord {
 
     let coord_average = tiles.iter().fold((0, 0), |acc, coord| (acc.0 + coord.x, acc.1 + coord.y));
     let count = tiles.len();
@@ -266,7 +266,7 @@ fn get_surface_distance_field(map: &UMap8, surface: &Vec<Coord>) -> FMap {
             }
 
             let mut min_dist = f32::MAX;
-            let mut closest = Coord::default();
+            // let mut closest: Coord;
 
             for coord in surface{
                 
@@ -274,7 +274,7 @@ fn get_surface_distance_field(map: &UMap8, surface: &Vec<Coord>) -> FMap {
 
                 if dist < min_dist {
                     min_dist = dist;
-                    closest = coord.clone();
+                    // closest = coord.clone();
                 }
             }
 
@@ -292,7 +292,7 @@ fn get_surface(map: &UMap8) -> Vec<Coord> {
 
     for x in 0..map.len() {
         for y in 0..map.len() {
-            let v = map[x][y];
+            let _v = map[x][y];
             if check_neighbors_horizonatl_or_vertical(x, y, &map) {
                 out.push(Coord { x, y });
             }

@@ -1,6 +1,6 @@
 use crate::{
     map_data::MapData,
-    types::{Blank, Coord, FMap, UMap8},
+    types::{Blank, FMap, UMap8},
     PlanetOptions,
 };
 use rand::{rngs::StdRng, Rng, SeedableRng};
@@ -125,7 +125,7 @@ fn decision(
     x: &usize,
     y: &usize,
     img: &Vec<Vec<u8>>,
-    altitude: &FMap,
+    _altitude: &FMap,
     options: &PlanetOptions,
     circle_offsets: &Vec<(i32, i32)>,
 ) -> bool {
@@ -149,7 +149,7 @@ fn _decision(
     x: &usize,
     y: &usize,
     img: &Vec<Vec<u8>>,
-    altitude: &FMap,
+    _altitude: &FMap,
     options: &PlanetOptions,
     circle_offsets: &Vec<(i32, i32)>,
 ) -> bool {

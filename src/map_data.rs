@@ -1,5 +1,4 @@
-use crate::{tile_map::TileMap, types::{FMap, FractalNoiseOptions, UMap8}, PlanetOptions};
-use anyhow::Result;
+use crate::types::{FMap, UMap8};
 
 #[derive(Default)]
 pub struct MapData{

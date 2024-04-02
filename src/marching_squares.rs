@@ -53,6 +53,8 @@ fn get_contours(input: Vec<Vec<i16>>) -> Result<PolyLines> {
         return Err(anyhow!("0 length data passed to get_contours"));
     }
 
+    println!("getting contours");
+
     let w = input[0].len();
     let h = input.len();
     let thresh = 125;

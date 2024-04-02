@@ -1,5 +1,5 @@
 use crate::{
-    bit_map::{average_center, max_inscribed_circle}, debug_print::TileMapDebug, tile_map::{Status, Tile, TileMap}, types::Coord
+    bit_map::{average_center, edge_average_center, max_inscribed_circle}, debug_print::TileMapDebug, tile_map::{Status, Tile, TileMap}, types::Coord
 };
 use std::collections::{HashSet, VecDeque};
 
@@ -108,7 +108,7 @@ impl Room {
 
     fn calc_center(tiles: &Vec<Coord>, edges: &Vec<usize>) -> Coord {
         // max_inscribed_circle(tiles, edges)
-        average_center(tiles, edges)
+        edge_average_center(tiles, edges)
         // get_center(tiles, edges)
     }
 

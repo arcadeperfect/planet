@@ -3,23 +3,23 @@
 use crate::{
     bit_map::thick_line,
     cellular_automata::simulate_ca,
-    debug_print::MapDebug,
     map_data::MapData,
     noise_circle::simple_circle,
     room::closest_tiles,
     roooms::Roooms,
     tile_map::{FromUMap, Tile, TileMap},
-    utils::{random_distribution, random_distribution_mask_weighted},
+    utils::random_distribution_mask_weighted,
 };
 use anyhow::{anyhow, Result};
 use bit_map::{apply_blur, get_initial_planet_map, umap_to_image_buffer};
-use imageproc::map;
+use image::RgbaImage;
+
 use marching_squares::march_squares_rgba;
 use noise::permutationtable::PermutationTable;
 use planet_data::PlanetData;
 use room::Room;
 pub use types::PlanetOptions;
-use types::{Blank, Coord, FMap, FractalNoiseOptions, PlanetMap, UMap16, UMap8};
+use types::{Blank, Coord, FMap, FractalNoiseOptions, PlanetMap, PolyLines, UMap8};
 
 mod bit_map;
 mod cellular_automata;
@@ -96,7 +96,7 @@ impl PlanetBuilder {
                 //     options.weight,
                 // );
 
-                let mut init_state = random_distribution_mask_weighted(
+                let init_state = random_distribution_mask_weighted(
                     options.resolution(),
                     options.ca_options.init_weight,
                     &msk,
@@ -162,7 +162,13 @@ impl PlanetBuilder {
 
                 if let Some(roooms) = &roooms {
                     if let Some(mst) = roooms.mst.as_ref() {
-                        connect_rooms(&roooms.rooms, mst, &mut tile_map, &mut md.raw_map);
+                        match connect_rooms(&roooms.rooms, mst, &mut tile_map, &mut md.raw_map){
+                            Ok(_) => {},
+                            Err(e) => {
+                                tracing::error!("{}", e);
+                            }
+                        }
+
                     }
                 }
 
@@ -203,7 +209,7 @@ impl PlanetBuilder {
 
         let polylines = march_squares_rgba(&image)?;
 
-        let mut maps: PlanetMap = PlanetMap {
+        let maps: PlanetMap = PlanetMap {
             resolution: r as usize,
             main: map_main,
             rooms_raw: None,
@@ -229,6 +235,10 @@ impl PlanetBuilder {
 //     let mut out = FMap::blank(map.len());
 
 // }
+
+pub fn remarch(rgba: &RgbaImage) -> Result<PolyLines> {
+    march_squares_rgba(rgba)
+}
 
 trait MapOpps {
     fn mult(&mut self, mult: f32);
