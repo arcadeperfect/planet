@@ -95,15 +95,15 @@ pub fn random_distribution(resolution: u32, weight: f32) -> Vec<Vec<u8>> {
 }
 
 
-pub fn random_distribution_mask_weighted(resolution: u32, weight: f32, mask: &Vec<Vec<f32>>, invert_mask: bool) -> Vec<Vec<u8>> {
+pub fn random_distribution_mask_weighted(resolution: u32, weight: f32, mask: &Vec<Vec<f32>>, invert_mask: bool, seed: u64) -> Vec<Vec<u8>> {
     let mut img: Vec<Vec<u8>> = vec![vec![0; resolution as usize]; resolution as usize];
-    let mut rng = StdRng::seed_from_u64(1);
+    let mut rng = StdRng::seed_from_u64(seed);
     let range = Uniform::new(0.0, 1.0);
 
     for y in 0..resolution {
         for x in 0..resolution {
             let random_value: f32 = rng.sample(&range);
-            let mask_value = mask[y as usize][x as usize];
+            let mask_value = mask[x as usize][y as usize];
             let adjusted_weight = if invert_mask {
                 if mask_value > 0.0 {
                     weight * (1.0 + mask_value)

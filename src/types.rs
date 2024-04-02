@@ -57,19 +57,6 @@ impl PlanetMap {
             mask: Some(vec![vec![0.; resolution]; resolution]),
         }
     }
-
-    // pub fn empty(resolution: usize) -> Self {
-    //     PlanetMap {
-    //         resolution,
-    //         main: None,
-    //         rooms_raw: None,
-    //         edges: None,
-    //         altitude: None,
-    //         depth: None,
-    //         edge_distance_field: None,
-    //         mask: None,
-    //     }
-    // }
 }
 
 #[derive(Clone, Debug)]
@@ -77,103 +64,65 @@ pub struct PlanetOptions {
     pub seed: u32,
     pub radius: f32,
     pub resolution: u32,
-    pub weight: f32,
-    pub thresh: u32,
+    pub ca_options: CaOptions,
+    pub global_noise_options: GlobalNoiseOptions,
+    pub noise_mask_options: NoiseMaskOptions,
     pub blur: f32,
     pub min_room_size: usize,
     pub crust_thickness: f32,
-    pub ca_iterations: u32,
-    pub ca_search_radius: u32,
-    pub ca_misc: i32,
-    pub invert_ca: bool,
-    pub mask_frequency: f64,
-    pub mask_z: f64,
-    pub global_amplitude: f32,
     pub displacement_scale: f64,
     pub displacement_frequency: f64,
-    pub rooms: bool
+    pub rooms: bool,
 }
 
 impl PlanetOptions {
-    pub fn new(
-        seed: u32,
-        radius: f32,
-        resolution: u32,
-        thresh: u32,
-        weight: f32,
-        blur: f32,
-        crust_thickness: f32,
-        min_room_size: usize,
-        ca_iterations: u32,
-        ca_search_radius: u32,
-        ca_misc: i32,
-        invert_ca: bool,
-        mask_frequency: f64,
-        mask_z: f64,
-        global_amplitude: f32,
-        displacement_scale: f64,
-        displacement_frequency: f64,
-        rooms: bool
-    ) -> Self {
-        Self {
-            seed,
-            radius,
-            resolution: resolution.max(8),
-            thresh,
-            weight,
-            blur,
-            min_room_size,
-            crust_thickness,
-            ca_search_radius,
-            ca_iterations,
-            ca_misc,
-            invert_ca,
-            mask_frequency,
-            mask_z,
-            global_amplitude,
-            displacement_scale,
-            displacement_frequency,
-            rooms
-        }
-    }
-
     pub fn resolution(&self) -> u32 {
         self.resolution.max(8)
     }
 }
 
-impl Default for PlanetOptions {
-    fn default() -> Self {
-        Self {
-            seed: 1,
-            radius: 1.,
-            resolution: 100,
-            weight: 50.,
-            thresh: 4,
-            blur: 1.,
-            min_room_size: 20,
-            crust_thickness: 0.,
-            ca_iterations: 10,
-            ca_search_radius: 10,
-            ca_misc: 0,
-            invert_ca: false,
-            mask_frequency: 0.5,
-            mask_z: 0.0,
-            global_amplitude: 1.0,
-            displacement_scale: 1.0,
-            displacement_frequency: 1.0,
-            rooms: false
-        }
-    }
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct GlobalNoiseOptions {
+    pub seed: u32,
+    pub z: f64,
+    pub frequency: f32,
+    pub amplitude: f32,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct FractalNoiseOptions {
+    pub z: f64,
     pub frequency: f64,
     pub lacunarity: f64,
     pub octaves: usize,
     pub persistence: f64,
     pub amplitude: f32,
+    pub offset: f32,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct NoiseMaskOptions {
+    pub mask_frequency: f64,
+    pub mask_z: f64,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct CaOptions {
+    pub seed: u64,
+    pub init_weight: f32,
+    pub iterations: u32,
+    pub search_radius: u32,
+    pub threshold: u32,
+    pub invert: bool,
+    pub mask_options: CaMaskOptions,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct CaMaskOptions {
+    pub mult: f32,
+    pub lift: f32,
+    pub clamp_max: f32,
+    pub clamp_min: f32,
 }
 
 #[derive(Clone, Copy, Default, Debug, PartialEq, Eq, Hash)]
@@ -284,4 +233,3 @@ impl DebugPrint for Vec<Room> {
         // }
     }
 }
-

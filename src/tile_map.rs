@@ -7,6 +7,7 @@ pub trait FromUMap<T: PartialEq> {
     fn blank(r: usize) -> TileMap;
     fn from_u_map(from: &Vec<Vec<T>>) -> TileMap;
     fn from_planet_and_caves(planet: &UMap8, rooms: &UMap8) -> TileMap;
+    // fn from_planet(planet: &UMap8) -> TileMap;
 }
 
 impl FromUMap<u8> for TileMap {

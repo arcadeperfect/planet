@@ -1,7 +1,15 @@
 #![allow(dead_code)]
 
 use crate::{
-    bit_map::thick_line, cellular_automata::simulate_ca, debug_print::MapDebug, map_data::MapData, room::closest_tiles, roooms::Roooms, tile_map::{FromUMap, Tile, TileMap}, utils::{random_distribution, random_distribution_mask_weighted}
+    bit_map::thick_line,
+    cellular_automata::simulate_ca,
+    debug_print::MapDebug,
+    map_data::MapData,
+    noise_circle::simple_circle,
+    room::closest_tiles,
+    roooms::Roooms,
+    tile_map::{FromUMap, Tile, TileMap},
+    utils::{random_distribution, random_distribution_mask_weighted},
 };
 use anyhow::{anyhow, Result};
 use bit_map::{apply_blur, get_initial_planet_map, umap_to_image_buffer};
@@ -13,9 +21,9 @@ use room::Room;
 pub use types::PlanetOptions;
 use types::{Blank, Coord, FMap, FractalNoiseOptions, PlanetMap, UMap16, UMap8};
 
-mod debug_print;
 mod bit_map;
 mod cellular_automata;
+mod debug_print;
 mod map_data;
 mod marching_squares;
 mod noise_circle;
@@ -61,27 +69,25 @@ impl PlanetBuilder {
         let mut mask: Option<FMap> = None;
 
 
-        
+        let mut msk: FMap = surface_distance_field;
+                let mut mult = 1. / (options.radius * r as f32);
 
-        match &options.rooms {
-            true => {
-                println!("rooms enabled");
-                // let mut m = md.depth_field.clone();
-                let mut m:FMap = surface_distance_field;
-                println!("----------------------------------------------- ");
-                // m.debug_print();
-                let mut mult = 1./(options.radius * r as f32);
-                mult *= 20.;
-                println!("radius: {}", &options.radius);
-                println!("mult: {}", &mult);
-                m.mult(mult);
-                m.clamp(0., 1.);
-                m.invert();
-                // m.debug_print();
-                
-                
-                // m.lift(5.);
-                m.clamp(0., 1.);
+                mult *= options.ca_options.mask_options.mult * options.ca_options.mask_options.mult;
+                msk.mult(mult);
+                msk.lift(options.ca_options.mask_options.lift);
+                msk.clamp(0., 1.);
+                msk.invert();
+                msk.clamp(0., 1.);
+
+                // let center_hole = simple_circle(options.radius * 10., r);
+
+                // for y in 0..r {
+                //     for x in 0..r {
+                //         if center_hole[x as usize][y as usize] > 0 {
+                //             msk[x as usize][y as usize] = 1.;
+                //         }
+                //     }
+                // }
 
                 // m.invert();
 
@@ -92,14 +98,65 @@ impl PlanetBuilder {
 
                 let mut init_state = random_distribution_mask_weighted(
                     options.resolution(),
-                    options.weight,
-                    &m,
+                    options.ca_options.init_weight,
+                    &msk,
                     true,
+                    options.ca_options.seed,
                 );
 
-                mask = Some(m);
+                mask = Some(msk);
 
-                let cave_map_raw: UMap8 = simulate_ca(&options, init_state, &md);
+
+
+        match &options.rooms {
+            true => {
+                // let mut msk: FMap = surface_distance_field;
+                // let mut mult = 1. / (options.radius * r as f32);
+
+                // mult *= options.ca_options.mask_options.mult * options.ca_options.mask_options.mult;
+                // msk.mult(mult);
+                // msk.lift(options.ca_options.mask_options.lift);
+                // msk.clamp(0., 1.);
+                // msk.invert();
+                // msk.clamp(0., 1.);
+
+                // // let center_hole = simple_circle(options.radius * 10., r);
+
+                // // for y in 0..r {
+                // //     for x in 0..r {
+                // //         if center_hole[x as usize][y as usize] > 0 {
+                // //             msk[x as usize][y as usize] = 1.;
+                // //         }
+                // //     }
+                // // }
+
+                // // m.invert();
+
+                // // let mut init_state = random_distribution(
+                // //     options.resolution(),
+                // //     options.weight,
+                // // );
+
+                // let mut init_state = random_distribution_mask_weighted(
+                //     options.resolution(),
+                //     options.ca_options.init_weight,
+                //     &msk,
+                //     true,
+                //     options.ca_options.seed,
+                // );
+
+                // mask = Some(msk);
+
+                let mut cave_map_raw: UMap8 = simulate_ca(&options, init_state, &md);
+                let center_hole = simple_circle(options.radius * 10., r);
+                for y in 0..r {
+                    for x in 0..r {
+                        if center_hole[x as usize][y as usize] > 0 {
+                            cave_map_raw[x as usize][y as usize] = 1;
+                        }
+                    }
+                }
+
                 tile_map = TileMap::from_planet_and_caves(&md.raw_map, &cave_map_raw);
                 let roooms = Roooms::new(&mut tile_map).ok();
 
@@ -117,7 +174,8 @@ impl PlanetBuilder {
                 );
             }
             false => {
-                println!("rooms disabled");
+                tile_map = TileMap::from_u_map(&md.raw_map);
+                map_main = md.raw_map;
             }
         }
 

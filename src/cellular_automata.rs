@@ -30,13 +30,15 @@ pub fn simulate_ca(options: &PlanetOptions, initial_state: UMap8, map_data: &Map
     let mut map1 = initial_state;
     let mut map2 = UMap8::blank(options.resolution() as usize);
 
-    let iters = if options.ca_iterations % 2 != 0 {
-        options.ca_iterations + 1
+    let iters = options.ca_options.iterations;
+
+    let iters = if iters % 2 != 0 {
+        iters + 1
     } else {
-        options.ca_iterations
+        iters
     };
 
-    let offsets = precompute_circle_offsets(options.ca_search_radius);
+    let offsets = precompute_circle_offsets(options.ca_options.search_radius);
 
     for _i in 1..iters {
         map2.par_iter_mut().enumerate().for_each(|(y, row)| {
@@ -56,7 +58,7 @@ pub fn simulate_ca(options: &PlanetOptions, initial_state: UMap8, map_data: &Map
         std::mem::swap(&mut map1, &mut map2);
     }
 
-    if options.invert_ca {
+    if options.ca_options.invert {
         for y in 0..options.resolution() {
             for x in 0..options.resolution() {
                 map1[y as usize][x as usize] = if map1[y as usize][x as usize] == 0 {
@@ -77,10 +79,10 @@ pub fn simulate_ca(options: &PlanetOptions, initial_state: UMap8, map_data: &Map
 //     let mut map1: UMap8 = random_distribution(options.resolution(), options.weight);
 //     let mut map2 = UMap8::blank(options.resolution() as usize);
 
-//     let iters = if options.ca_iterations % 2 != 0 {
-//         options.ca_iterations + 1
+//     let iters = if iters % 2 != 0 {
+//         iters + 1
 //     } else {
-//         options.ca_iterations
+//         iters
 //     };
 
 //     let offsets = precompute_circle_offsets(options.ca_search_radius);
@@ -133,13 +135,13 @@ fn decision(
         x,
         y,
         img,
-        options.ca_search_radius,
+        options.ca_options.search_radius,
         circle_offsets,
     );
     // let result = get_neighboring_wall_tile_count_within_radius_circle(x, y, img, 3);
 
-    let a: i32 = (altitude[*y][*x] as i32) * options.ca_misc;
-    let thresh: i32 = options.thresh as i32 + a;
+    // let a: i32 = (altitude[*y][*x] as i32) * options.ca_misc;
+    let thresh: i32 = options.ca_options.threshold as i32;
     result > thresh as u32
 }
 
@@ -157,13 +159,13 @@ fn _decision(
         x,
         y,
         img,
-        options.ca_search_radius,
+        options.ca_options.search_radius,
         circle_offsets,
     );
     // let result = get_neighboring_wall_tile_count_within_radius_circle(x, y, img, 3);
 
-    let a: i32 = (altitude[*y][*x] as i32) * options.ca_misc;
-    let thresh: i32 = options.thresh as i32 + a;
+    // let a: i32 = (altitude[*y][*x] as i32) * options.ca_misc;
+    let thresh: i32 = options.ca_options.threshold as i32;
     result > thresh as u32
 }
 

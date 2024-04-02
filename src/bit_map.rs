@@ -1,6 +1,6 @@
 use std::collections::HashSet;
-
 use anyhow::Result;
+
 use image::{Rgba, RgbaImage};
 use imageproc::filter::gaussian_blur_f32;
 
@@ -17,11 +17,12 @@ pub fn get_initial_planet_map(
         options.radius,
         options.resolution,
         fractal_options,
-        options.mask_frequency,
-        options.mask_z,
-        options.global_amplitude,
+        options.noise_mask_options.mask_frequency,
+        options.noise_mask_options.mask_z,
+        options.global_noise_options.amplitude,
         options.displacement_scale,
         options.displacement_frequency,
+        options.global_noise_options.frequency,
     )?;
 
     let surface_distance_field = get_surface_distance_field(&map, &get_surface(&map));
@@ -241,8 +242,15 @@ pub fn dist_squared(a: &Coord, b: &Coord) -> f32 {
 }
 
 pub fn dist(a: &Coord, b: &Coord) -> f32 {
-    let dx = b.x - a.x;
-    let dy = b.y - a.y;
+
+    let _dx = b.x as i32 - a.x as i32;
+    let _dy = b.y as i32 - a.y as i32;
+
+    let dx = _dx.abs();
+    let dy = _dy.abs();
+
+    // let dx = b.x - a.x;
+    // let dy = b.y - a.y;
     ((dx * dx + dy * dy) as f32).sqrt()
 }
 
