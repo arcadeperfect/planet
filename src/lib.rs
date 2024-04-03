@@ -1,8 +1,14 @@
 #![allow(dead_code)]
 
+use std::usize;
+
 use crate::{
-    bit_map::thick_line,
+    bit_map::{
+        image_buffer_to_fmap, image_buffer_to_umap,
+        umap_to_fmap, MapOpps,
+    },
     cellular_automata::simulate_ca,
+    debug_print::MapDebug,
     map_data::MapData,
     noise_circle::simple_circle,
     room::closest_tiles,
@@ -11,7 +17,10 @@ use crate::{
     utils::random_distribution_mask_weighted,
 };
 use anyhow::{anyhow, Result};
-use bit_map::{apply_blur, get_initial_planet_map, umap_to_image_buffer};
+use bit_map::{
+    get_initial_planet_map, noise_line, rgba_image_blur,
+    umap_to_image_buffer,
+};
 use image::RgbaImage;
 
 use marching_squares::march_squares_rgba;
@@ -19,7 +28,10 @@ use noise::permutationtable::PermutationTable;
 use planet_data::PlanetData;
 use room::Room;
 pub use types::PlanetOptions;
-use types::{Blank, Coord, FMap, FractalNoiseOptions, PlanetMap, PolyLines, UMap8};
+use types::{
+    Blank, Coord, FMap, FractalNoiseOptions, PlanetMap,
+    PolyLines, UMap8,
+};
 
 mod bit_map;
 mod cellular_automata;
@@ -57,118 +69,76 @@ impl PlanetBuilder {
 
         let r = options.resolution();
         let mut md = MapData::default();
-        let v = get_initial_planet_map(&options, fractal_options)?;
+        let v = get_initial_planet_map(
+            &options,
+            fractal_options,
+        )?;
         md.raw_map = v.0;
         md.altitude_field = v.1;
         md.depth_field = v.2;
 
-        let surface_distance_field = v.3;
-
         let mut map_main = UMap8::blank(r as usize);
         let mut tile_map = TileMap::blank(r as usize);
         let mut mask: Option<FMap> = None;
+        let blurred_edge = rgba_image_blur(
+            &umap_to_image_buffer(&md.raw_map),
+            options.ca_options.mask_options.mult,
+        );
+        let mut msk = image_buffer_to_fmap(&blurred_edge);
 
+        msk.clamp(0., 1.);
+        msk.invert();
+        msk.mult(2.);
+        msk.clamp(0., 1.);
 
-        let mut msk: FMap = surface_distance_field;
-                let mut mult = 1. / (options.radius * r as f32);
+        let init_state = random_distribution_mask_weighted(
+            options.resolution(),
+            options.ca_options.init_weight,
+            &msk,
+            true,
+            options.ca_options.seed,
+        );
 
-                mult *= options.ca_options.mask_options.mult * options.ca_options.mask_options.mult;
-                msk.mult(mult);
-                msk.lift(options.ca_options.mask_options.lift);
-                msk.clamp(0., 1.);
-                msk.invert();
-                msk.clamp(0., 1.);
-
-                // let center_hole = simple_circle(options.radius * 10., r);
-
-                // for y in 0..r {
-                //     for x in 0..r {
-                //         if center_hole[x as usize][y as usize] > 0 {
-                //             msk[x as usize][y as usize] = 1.;
-                //         }
-                //     }
-                // }
-
-                // m.invert();
-
-                // let mut init_state = random_distribution(
-                //     options.resolution(),
-                //     options.weight,
-                // );
-
-                let init_state = random_distribution_mask_weighted(
-                    options.resolution(),
-                    options.ca_options.init_weight,
-                    &msk,
-                    true,
-                    options.ca_options.seed,
-                );
-
-                mask = Some(msk);
-
-
+        mask = Some(msk);
 
         match &options.rooms {
             true => {
-                // let mut msk: FMap = surface_distance_field;
-                // let mut mult = 1. / (options.radius * r as f32);
-
-                // mult *= options.ca_options.mask_options.mult * options.ca_options.mask_options.mult;
-                // msk.mult(mult);
-                // msk.lift(options.ca_options.mask_options.lift);
-                // msk.clamp(0., 1.);
-                // msk.invert();
-                // msk.clamp(0., 1.);
-
-                // // let center_hole = simple_circle(options.radius * 10., r);
-
-                // // for y in 0..r {
-                // //     for x in 0..r {
-                // //         if center_hole[x as usize][y as usize] > 0 {
-                // //             msk[x as usize][y as usize] = 1.;
-                // //         }
-                // //     }
-                // // }
-
-                // // m.invert();
-
-                // // let mut init_state = random_distribution(
-                // //     options.resolution(),
-                // //     options.weight,
-                // // );
-
-                // let mut init_state = random_distribution_mask_weighted(
-                //     options.resolution(),
-                //     options.ca_options.init_weight,
-                //     &msk,
-                //     true,
-                //     options.ca_options.seed,
-                // );
-
-                // mask = Some(msk);
-
-                let mut cave_map_raw: UMap8 = simulate_ca(&options, init_state, &md);
-                let center_hole = simple_circle(options.radius * 10., r);
+                let mut cave_map_raw: UMap8 =
+                    simulate_ca(&options, init_state, &md);
+                let center_hole =
+                    simple_circle(options.radius * 10., r);
                 for y in 0..r {
                     for x in 0..r {
-                        if center_hole[x as usize][y as usize] > 0 {
-                            cave_map_raw[x as usize][y as usize] = 1;
+                        if center_hole[x as usize]
+                            [y as usize]
+                            > 0
+                        {
+                            cave_map_raw[x as usize]
+                                [y as usize] = 1;
                         }
                     }
                 }
 
-                tile_map = TileMap::from_planet_and_caves(&md.raw_map, &cave_map_raw);
-                let roooms = Roooms::new(&mut tile_map).ok();
+                tile_map = TileMap::from_planet_and_caves(
+                    &md.raw_map,
+                    &cave_map_raw,
+                );
+                let roooms =
+                    Roooms::new(&mut tile_map).ok();
 
                 if let Some(roooms) = &roooms {
                     if let Some(mst) = roooms.mst.as_ref() {
-                        match connect_rooms(&roooms.rooms, mst, &mut tile_map, &mut md.raw_map){
-                            Ok(_) => {},
+                        match connect_rooms(
+                            &roooms.rooms,
+                            mst,
+                            &mut tile_map,
+                            &mut md.raw_map,
+                        ) {
+                            Ok(_) => {}
                             Err(e) => {
                                 tracing::error!("{}", e);
                             }
                         }
-
                     }
                 }
 
@@ -185,29 +155,11 @@ impl PlanetBuilder {
             }
         }
 
-        // let mut init_state = random_distribution(options.resolution(), options.weight);
-
-        // let mut tile_map = TileMap::from_planet_and_caves(&md.raw_map, &cave_map_raw);
-        // let roooms = Roooms::new(&mut tile_map).ok();
-
-        // if let Some(roooms) = &roooms {
-        //     if let Some(mst) = roooms.mst.as_ref() {
-        //         connect_rooms(&roooms.rooms, mst, &mut tile_map, &mut md.raw_map);
-        //     }
-        // }
-
-        // let map_main: UMap8 = thresh_sub(
-        //     &cave_map_raw,
-        //     &md.raw_map,
-        //     &md.depth_field,
-        //     1. - options.crust_thickness, //todo don't do thickness like this, do it before rooms are calculated
-        // );
-
         let mut image = umap_to_image_buffer(&map_main);
 
-        image = apply_blur(&image, options.blur);
+        image = rgba_image_blur(&image, options.blur);
 
-        let polylines = march_squares_rgba(&image)?;
+        // let polylines = march_squares_rgba(&image)?;
 
         let maps: PlanetMap = PlanetMap {
             resolution: r as usize,
@@ -223,7 +175,7 @@ impl PlanetBuilder {
         Ok(PlanetData {
             planet_map: maps,
             image,
-            polylines,
+            // polylines,
             tile_map,
             mst: None,
             roooms: None,
@@ -236,58 +188,63 @@ impl PlanetBuilder {
 
 // }
 
-pub fn remarch(rgba: &RgbaImage) -> Result<PolyLines> {
-    march_squares_rgba(rgba)
-}
+// pub fn remarch(rgba: &RgbaImage) -> Result<PolyLines> {
+//     march_squares_rgba(rgba)
+// }
 
-trait MapOpps {
-    fn mult(&mut self, mult: f32);
-    fn lift(&mut self, lift: f32);
-    fn invert(&mut self);
-    fn clamp(&mut self, min: f32, max: f32);
-    fn remap(&mut self, low1: f32, high1: f32, low2: f32, high2: f32);
-}
+// pub trait MapOpps {
+//     fn mult(&mut self, mult: f32);
+//     fn lift(&mut self, lift: f32);
+//     fn invert(&mut self);
+//     fn clamp(&mut self, min: f32, max: f32);
+//     fn remap(&mut self, low1: f32, high1: f32, low2: f32, high2: f32);
+// }
 
-impl MapOpps for FMap {
-    fn mult(&mut self, mult: f32) {
-        for row in self.iter_mut() {
-            for value in row.iter_mut() {
-                *value *= mult;
-            }
-        }
-    }
-    fn lift(&mut self, lift: f32) {
-        for row in self.iter_mut() {
-            for value in row.iter_mut() {
-                *value = 1. - ((1. - *value) * lift)
-            }
-        }
-    }
-    fn invert(&mut self) {
-        for row in self.iter_mut() {
-            for value in row.iter_mut() {
-                *value = 1. - *value;
-            }
-        }
-    }
-    fn clamp(&mut self, min: f32, max: f32) {
-        for row in self.iter_mut() {
-            for value in row.iter_mut() {
-                *value = value.clamp(min, max)
-            }
-        }
-    }
+// impl MapOpps for FMap {
+//     fn mult(&mut self, mult: f32) {
+//         for row in self.iter_mut() {
+//             for value in row.iter_mut() {
+//                 *value *= mult;
+//             }
+//         }
+//     }
+//     fn lift(&mut self, lift: f32) {
+//         for row in self.iter_mut() {
+//             for value in row.iter_mut() {
+//                 *value = 1. - ((1. - *value) * lift)
+//             }
+//         }
+//     }
+//     fn invert(&mut self) {
+//         for row in self.iter_mut() {
+//             for value in row.iter_mut() {
+//                 *value = 1. - *value;
+//             }
+//         }
+//     }
+//     fn clamp(&mut self, min: f32, max: f32) {
+//         for row in self.iter_mut() {
+//             for value in row.iter_mut() {
+//                 *value = value.clamp(min, max)
+//             }
+//         }
+//     }
 
-    fn remap(&mut self, low1: f32, high1: f32, low2: f32, high2: f32) {
-        for row in self.iter_mut() {
-            for value in row.iter_mut() {
-                *value = (*value - low1) / (high1 - low1) * (high2 - low2) + low2
-            }
-        }
-    }
-}
+//     fn remap(&mut self, low1: f32, high1: f32, low2: f32, high2: f32) {
+//         for row in self.iter_mut() {
+//             for value in row.iter_mut() {
+//                 *value = (*value - low1) / (high1 - low1) * (high2 - low2) + low2
+//             }
+//         }
+//     }
+// }
 
-fn thresh_sub(this: &UMap8, from: &UMap8, mask: &FMap, thresh: f32) -> UMap8 {
+fn thresh_sub(
+    this: &UMap8,
+    from: &UMap8,
+    mask: &FMap,
+    thresh: f32,
+) -> UMap8 {
     from.iter()
         .enumerate()
         .map(|(y, row)| {
@@ -298,7 +255,8 @@ fn thresh_sub(this: &UMap8, from: &UMap8, mask: &FMap, thresh: f32) -> UMap8 {
                         return val;
                     }
 
-                    let inverted = if this[y][x] == 1 { 0 } else { 1 };
+                    let inverted =
+                        if this[y][x] == 1 { 0 } else { 1 };
                     val * inverted
                 })
                 .collect()
@@ -306,7 +264,10 @@ fn thresh_sub(this: &UMap8, from: &UMap8, mask: &FMap, thresh: f32) -> UMap8 {
         .collect()
 }
 
-fn mult(this: &Vec<Vec<u8>>, from: &Vec<Vec<u8>>) -> Vec<Vec<u8>> {
+fn mult(
+    this: &Vec<Vec<u8>>,
+    from: &Vec<Vec<u8>>,
+) -> Vec<Vec<u8>> {
     from.iter()
         .enumerate()
         .map(|(y, row)| {
@@ -326,31 +287,40 @@ fn connect_rooms(
 ) -> Result<()> {
     let max_p = tile_map.len();
 
+    let tunnel_thickness = umap.len() as f32 * 0.008;
+
     for index_pair in mst {
-        line_between_rooms(&rooms[index_pair.0], &rooms[index_pair.1])
-            .iter()
-            .try_for_each(|p| {
-                if p.x > max_p - 1 || p.y > max_p - 1 {
-                    Err(anyhow!("p.x > max_p || p.y > max_p"))
-                } else {
-                    match tile_map[p.x][p.y] {
-                        Tile::Wall => {
-                            tile_map[p.x][p.y] = Tile::Tunnel(0);
-                            umap[p.x][p.y] = 0;
-                        }
-                        _ => {}
+        line_between_rooms(
+            &rooms[index_pair.0],
+            &rooms[index_pair.1],
+            tunnel_thickness as u32,
+        )
+        .iter()
+        .try_for_each(|p| {
+            if p.x > max_p - 1 || p.y > max_p - 1 {
+                Err(anyhow!("p.x > max_p || p.y > max_p"))
+            } else {
+                match tile_map[p.x][p.y] {
+                    Tile::Wall => {
+                        tile_map[p.x][p.y] =
+                            Tile::Tunnel(0);
+                        umap[p.x][p.y] = 0;
                     }
-                    Ok(())
+                    _ => {}
                 }
-            })?;
+                Ok(())
+            }
+        })?;
     }
 
     Ok(())
 }
 
-fn line_between_rooms(a: &Room, b: &Room) -> Vec<Coord> {
+fn line_between_rooms(a: &Room, b: &Room, thickness: u32) -> Vec<Coord> {
     let c = closest_tiles(a, b);
-    thick_line(&c.0, &c.1, 3)
+    // thick_line(&c.0, &c.1, 3)
+    // variable_line(&c.0, &c.1, 3, 3.)
+    noise_line(&c.0, &c.1, 3, 5., 0.03)
 }
 
 // fn get_surface(map: UMap8) -> Vec<Coord> {
@@ -403,3 +373,4 @@ fn line_between_rooms(a: &Room, b: &Room) -> Vec<Coord> {
 
 //     false
 // }
+

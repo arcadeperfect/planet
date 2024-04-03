@@ -129,18 +129,17 @@ impl MapDebug for UMap8 {
 
 impl MapDebug for FMap {
     fn debug_print_raw(&self) {
-        todo!()
-        // let mut result = String::new();
-        // result.push_str("FMap debug: \n");
-        // for row in self.iter() {
-        //     for tile in row.iter() {
-        //         let v = *tile.min(&9);
-        //         let c = char::from_digit(v as u32, 10).unwrap_or(' '); // Clamped at 9 and replaced with space if out of range
-        //         result.push_str(format!("{} ", c).as_str());
-        //     }
-        //     result.push('\n');
-        // }
-        // println!("{}", result);
+        let mut result = String::new();
+        result.push_str("FMap debug: \n");
+        for row in self.iter() {
+            for tile in row.iter() {
+                let v = tile.min(9.);
+                let c = char::from_digit(v as u32, 10).unwrap_or(' '); // Clamped at 9 and replaced with space if out of range
+                result.push_str(format!("{} ", c).as_str());
+            }
+            result.push('\n');
+        }
+        println!("{}", result);
     }   
 
     fn debug_print(&self) {
