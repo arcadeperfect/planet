@@ -73,6 +73,7 @@ pub struct PlanetOptions {
     pub displacement_scale: f64,
     pub displacement_frequency: f64,
     pub rooms: bool,
+    pub tunnels: bool,
 }
 
 impl PlanetOptions {
@@ -106,7 +107,7 @@ pub struct NoiseMaskOptions {
     pub mask_z: f64,
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CaOptions {
     pub seed: u64,
     pub init_weight: f32,
@@ -115,6 +116,20 @@ pub struct CaOptions {
     pub threshold: u32,
     pub invert: bool,
     pub mask_options: CaMaskOptions,
+}
+
+impl Default for CaOptions {
+    fn default() -> Self {
+        Self {
+            seed: 0,
+            init_weight: 0.5,
+            iterations: 4,
+            search_radius: 3,
+            threshold: 7,
+            invert: false,
+            mask_options: CaMaskOptions::default(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -138,9 +153,16 @@ impl Coord {
     pub fn into_world_normalized_vec2(self, r: &u32) -> Vec2 {
         Vec2::new(
             self.x as f32 / *r as f32 * 2.0 - 1.0,
-            -(self.y as f32 / *r as f32 * 2.0 - 1.0),
+            -(self.y as f32 / *r as f32 * 2.0 - 1.0), 
         )
     }
+
+    // pub fn into_world_normalized_offset_vec2(self, r: &u32, o: &f32) -> Vec2 {
+    //     Vec2::new(
+    //         self.x as f32 / *r as f32 * 2.0 - 1.0,
+    //         -(self.y as f32 / *r as f32 * 2.0 - 1.0),
+    //     )
+    // }
 
     pub fn into_vec2(self) -> Vec2 {
         Vec2::new(self.x as f32, self.y as f32)

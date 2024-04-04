@@ -128,15 +128,19 @@ impl PlanetBuilder {
 
                 if let Some(roooms) = &roooms {
                     if let Some(mst) = roooms.mst.as_ref() {
-                        match connect_rooms(
-                            &roooms.rooms,
-                            mst,
-                            &mut tile_map,
-                            &mut md.raw_map,
-                        ) {
-                            Ok(_) => {}
-                            Err(e) => {
-                                tracing::error!("{}", e);
+                        if options.tunnels {
+                            match connect_rooms(
+                                &roooms.rooms,
+                                mst,
+                                &mut tile_map,
+                                &mut md.raw_map,
+                            ) {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    tracing::error!(
+                                        "{}", e
+                                    );
+                                }
                             }
                         }
                     }
@@ -148,6 +152,34 @@ impl PlanetBuilder {
                     &md.depth_field,
                     1. - options.crust_thickness, //todo don't do thickness like this, do it before rooms are calculated
                 );
+
+                let mut image =
+                    umap_to_image_buffer(&map_main);
+
+                image =
+                    rgba_image_blur(&image, options.blur);
+
+                // let polylines = march_squares_rgba(&image)?;
+
+                let maps: PlanetMap = PlanetMap {
+                    resolution: r as usize,
+                    main: map_main,
+                    rooms_raw: None,
+                    edges: None,
+                    altitude: md.altitude_field,
+                    depth: md.depth_field,
+                    edge_distance_field: None,
+                    mask,
+                };
+
+                return Ok(PlanetData {
+                    planet_map: maps,
+                    image,
+                    // polylines,
+                    tile_map,
+                    mst: None,
+                    roooms: roooms,
+                });
             }
             false => {
                 tile_map = TileMap::from_u_map(&md.raw_map);
@@ -316,7 +348,11 @@ fn connect_rooms(
     Ok(())
 }
 
-fn line_between_rooms(a: &Room, b: &Room, thickness: u32) -> Vec<Coord> {
+fn line_between_rooms(
+    a: &Room,
+    b: &Room,
+    thickness: u32,
+) -> Vec<Coord> {
     let c = closest_tiles(a, b);
     // thick_line(&c.0, &c.1, 3)
     // variable_line(&c.0, &c.1, 3, 3.)
@@ -373,4 +409,3 @@ fn line_between_rooms(a: &Room, b: &Room, thickness: u32) -> Vec<Coord> {
 
 //     false
 // }
-

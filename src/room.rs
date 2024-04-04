@@ -38,9 +38,6 @@ impl Room {
         min_room_size: usize,
     ) -> Option<Room> {
 
-        
-        
-
         let x = search_start.0;
         let y = search_start.1;
 
@@ -108,8 +105,8 @@ impl Room {
 
     fn calc_center(tiles: &Vec<Coord>, edges: &Vec<usize>) -> Coord {
         // max_inscribed_circle(tiles, edges)
-        edge_average_center(tiles, edges)
-        // get_center(tiles, edges)
+        // edge_average_center(tiles, edges)
+        average_center(tiles)
     }
 
     pub fn get_min_max_coords(&self) -> (Coord, Coord) {
