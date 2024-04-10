@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use anyhow::{anyhow, Result};
 
 use image::RgbaImage;
@@ -53,7 +55,9 @@ fn get_contours(input: Vec<Vec<i16>>) -> Result<PolyLines> {
         return Err(anyhow!("0 length data passed to get_contours"));
     }
 
-    println!("getting contours");
+    let instant: Instant = Instant::now();
+
+    // println!("getting contours");
 
     let w = input[0].len();
     let h = input.len();
@@ -83,6 +87,9 @@ fn get_contours(input: Vec<Vec<i16>>) -> Result<PolyLines> {
         .iter()
         .map(|v| Vec::from_marching_square_line(v))
         .collect();
+
+
+    println!("march took {:?} ", instant.elapsed());
 
     Ok(out)
 }

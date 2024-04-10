@@ -1,5 +1,7 @@
+use std::time::Instant;
+
 use anyhow::Result;
-use noise::{Fbm, MultiFractal, NoiseFn, Perlin};
+use noise::{Fbm, MultiFractal, NoiseFn, Perlin, Simplex};
 
 use crate::{
     types::{Blank, FMap, FractalNoiseOptions, UMap8},
@@ -28,6 +30,7 @@ pub fn generate_fbm_circle(
     displacement_frequency: f64,
     global_frequency: f32,
 ) -> Result<(UMap8, FMap, FMap)> {
+    let instant: Instant = Instant::now();
     let radius = resolution as f32 * 0.4 * radius as f32;
     let center = (resolution / 2, resolution / 2);
 
@@ -70,14 +73,26 @@ pub fn generate_fbm_circle(
 
     // println!("surface len {}", surface.len());
 
+    println!("fmb_circle took {:?}", instant.elapsed());
+
     Ok((map, altitude_field, depth_field))
 }
 
+// struct FbmCombiner {
+//     fbm_vec: Vec<Fbm<Perlin>>,
+//     mask_noise: Perlin,
+//     displacement_noise_x: Perlin,
+//     displacement_noise_y: Perlin,
+//     displacement_scale: f64,
+//     displacement_frequency: f64,
+//     amplitudes: Vec<f32>,
+//     offsets: Vec<f32>,
+// }
 struct FbmCombiner {
-    fbm_vec: Vec<Fbm<Perlin>>,
-    mask_noise: Perlin,
-    displacement_noise_x: Perlin,
-    displacement_noise_y: Perlin,
+    fbm_vec: Vec<Fbm<Simplex>>,
+    mask_noise: Simplex,
+    displacement_noise_x: Simplex,
+    displacement_noise_y: Simplex,
     displacement_scale: f64,
     displacement_frequency: f64,
     amplitudes: Vec<f32>,
@@ -92,21 +107,21 @@ impl FbmCombiner {
         displacement_frequency: f64,
         global_frequency: f64,
     ) -> Self {
-        let displacement_noise_x = Perlin::new(seed + 1);
-        let displacement_noise_y = Perlin::new(seed + 2);
+        let displacement_noise_x = Simplex::new(seed + 1);
+        let displacement_noise_y = Simplex::new(seed + 2);
 
         FbmCombiner {
             fbm_vec: options_vec
                 .iter()
                 .map(|options| {
-                    Fbm::<Perlin>::new(seed)
+                    Fbm::<Simplex>::new(seed)
                         .set_frequency(options.frequency * global_frequency)
                         .set_persistence(options.persistence)
                         .set_lacunarity(options.lacunarity)
                         .set_octaves(options.octaves)
                 })
                 .collect(),
-            mask_noise: Perlin::new(seed),
+            mask_noise: Simplex::new(seed),
             displacement_noise_x,
             displacement_noise_y,
             displacement_scale,
@@ -117,18 +132,18 @@ impl FbmCombiner {
     }
 
     fn get(&self, point: [f64; 2], mask_freq: f64, mask_z: f64) -> f64 {
-        let displaced_point = [
-            point[0]
-                + self.displacement_noise_x.get([
-                    point[0] * self.displacement_frequency,
-                    point[1] * self.displacement_frequency,
-                ]) * self.displacement_scale,
-            point[1]
-                + self.displacement_noise_y.get([
-                    point[0] * self.displacement_frequency,
-                    point[1] * self.displacement_frequency,
-                ]) * self.displacement_scale,
-        ];
+        // let displaced_point = [
+        //     point[0]
+        //         + self.displacement_noise_x.get([
+        //             point[0] * self.displacement_frequency,
+        //             point[1] * self.displacement_frequency,
+        //         ]) * self.displacement_scale,
+        //     point[1]
+        //         + self.displacement_noise_y.get([
+        //             point[0] * self.displacement_frequency,
+        //             point[1] * self.displacement_frequency,
+        //         ]) * self.displacement_scale,
+        // ];
 
         match self.fbm_vec.len() {
             0 => 0.0,
@@ -148,9 +163,9 @@ impl FbmCombiner {
                         let upper_bound = (i + 1) as f64 * interval;
                         if mask >= lower_bound && mask < upper_bound {
                             let blend_factor = (mask - lower_bound) / interval;
-                            let noise1 = fbm.get(displaced_point) * (self.amplitudes[i] as f64)
+                            let noise1 = fbm.get(point) * (self.amplitudes[i] as f64)
                                 + self.offsets[i] as f64;
-                            let noise2 = self.fbm_vec[i + 1].get(displaced_point)
+                            let noise2 = self.fbm_vec[i + 1].get(point)
                                 * (self.amplitudes[i + 1] as f64)
                                 + self.offsets[i + 1] as f64;
                             total_value += noise1 * (1.0 - blend_factor) + noise2 * blend_factor;

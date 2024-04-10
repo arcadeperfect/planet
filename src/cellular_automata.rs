@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use crate::{
     map_data::MapData,
     types::{Blank, FMap, UMap8},
@@ -24,7 +26,7 @@ fn precompute_circle_offsets(radius: u32) -> Vec<(i32, i32)> {
 
 pub fn simulate_ca(options: &PlanetOptions, initial_state: UMap8, map_data: &MapData) -> UMap8 {
 
-
+    let instant: Instant = Instant::now();
     // these get mem swapped
     // let mut map1: UMap8 = random_distribution(options.resolution(), options.weight);
     let mut map1 = initial_state;
@@ -69,6 +71,8 @@ pub fn simulate_ca(options: &PlanetOptions, initial_state: UMap8, map_data: &Map
             }
         }
     }
+
+    println!("ca took {:?}", instant.elapsed());
 
     map1
 }

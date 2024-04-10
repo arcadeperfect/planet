@@ -1,6 +1,8 @@
 #![allow(dead_code)]
 
-use std::usize;
+use std::{
+    cell::UnsafeCell, sync::Arc, time::Instant, usize,
+};
 
 use crate::{
     bit_map::{
@@ -23,9 +25,17 @@ use bit_map::{
 };
 use image::RgbaImage;
 
+use imageproc::point;
 use marching_squares::march_squares_rgba;
-use noise::permutationtable::PermutationTable;
+use noise::{
+    permutationtable::PermutationTable, Clamp, Fbm,
+    NoiseFn, Perlin, Simplex,
+};
 use planet_data::PlanetData;
+use rayon::iter::{
+    IndexedParallelIterator, IntoParallelIterator,
+    ParallelIterator,
+};
 use room::Room;
 pub use types::PlanetOptions;
 use types::{
@@ -76,6 +86,17 @@ impl PlanetBuilder {
         md.raw_map = v.0;
         md.altitude_field = v.1;
         md.depth_field = v.2;
+
+        md.raw_map = warp(
+            &md.raw_map,
+            options.displacement_scale,
+            options.displacement_frequency,
+        );
+        md.raw_map = warp(
+            &md.raw_map,
+            options.displacement_scale,
+            options.displacement_frequency,
+        );
 
         let mut map_main = UMap8::blank(r as usize);
         let mut tile_map = TileMap::blank(r as usize);
@@ -153,6 +174,12 @@ impl PlanetBuilder {
                     1. - options.crust_thickness, //todo don't do thickness like this, do it before rooms are calculated
                 );
 
+                map_main = warp(
+                    &map_main,
+                    options.displacement_scale,
+                    options.displacement_frequency,
+                );
+
                 let mut image =
                     umap_to_image_buffer(&map_main);
 
@@ -212,6 +239,81 @@ impl PlanetBuilder {
             mst: None,
             roooms: None,
         })
+    }
+}
+
+fn warp(
+    map: &Vec<Vec<u8>>,
+    scale: f64,
+    frequency: f64,
+) -> Vec<Vec<u8>> {
+    // println!("new ");
+
+    let fmb = Fbm::<Simplex>::new(0);
+    // let fmb = Fbm::<Perlin>::new(0);
+    let r = map.len();
+    let mut out: Vec<Vec<u8>> = vec![vec![0; r]; r]; // Creates a r x r matrix filled with 0s
+    // let out = Arc::new(
+    //     (0..r)
+    //         .map(|_| UnsafeCell::new(vec![0u8; r]))
+    //         .collect::<Vec<_>>(),
+    // );
+
+    let instant: Instant = Instant::now();
+
+    // (0..r).into_par_iter().for_each(|x| {
+    //     // SAFETY: This is safe because each thread is modifying a unique part of the vector.
+    //     let out_x = unsafe { &mut *out[x].get() };
+    //     for y in 0..r {
+    //         let point1 = [x as f64 * frequency, y as f64 * frequency];
+    //         let point2 = [x as f64 * frequency, y as f64 * frequency + 100.0];
+
+    //         let offset1 = ((fmb.get(point1)) * scale) as i32;
+    //         let offset2 = ((fmb.get(point2)) * scale) as i32;
+
+    //         let new_x = (x as i32 + offset1).clamp(0, r as i32 - 1);
+    //         let new_y = (y as i32 + offset2).clamp(0, r as i32 - 1);
+
+    //         out_x[y] = map[new_x as usize][new_y as usize];
+    //     }
+    // });
+
+    for x in 0..r {
+        for y in 0..r {
+            let point1 = [
+                x as f64 * frequency,
+                y as f64 * frequency,
+            ];
+            let point2 = [
+                x as f64 * frequency,
+                y as f64 * frequency + 100.,
+            ];
+
+            let offset1 =
+                ((fmb.get(point1)) * scale) as i32;
+            let offset2 =
+                ((fmb.get(point2)) * scale) as i32;
+
+            let new_x =
+                (x as i32 + offset1).clamp(0, r as i32 - 1);
+            let new_y =
+                (y as i32 + offset2).clamp(0, r as i32 - 1);
+
+            out[x][y] = map[new_x as usize][new_y as usize];
+        }
+
+    }
+    println!("warp took {:?}", instant.elapsed());
+    out
+}
+
+trait mult {
+    fn mult(&self, f: f64) -> [f64; 2];
+}
+
+impl mult for [f64; 2] {
+    fn mult(&self, f: f64) -> [f64; 2] {
+        [self[0] * f, self[1] * f]
     }
 }
 
