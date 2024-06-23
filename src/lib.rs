@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use std::{
-    cell::UnsafeCell, sync::Arc, time::Instant, usize,
+    cell::UnsafeCell, sync::Arc, usize,
 };
 
 use crate::{
@@ -259,7 +259,7 @@ fn warp(
     //         .collect::<Vec<_>>(),
     // );
 
-    let instant: Instant = Instant::now();
+    // let instant: Instant = Instant::now();
 
     // (0..r).into_par_iter().for_each(|x| {
     //     // SAFETY: This is safe because each thread is modifying a unique part of the vector.
@@ -303,7 +303,7 @@ fn warp(
         }
 
     }
-    println!("warp took {:?}", instant.elapsed());
+    // println!("warp took {:?}", instant.elapsed());
     out
 }
 

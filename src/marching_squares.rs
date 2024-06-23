@@ -1,4 +1,3 @@
-use std::time::Instant;
 
 use anyhow::{anyhow, Result};
 
@@ -55,7 +54,7 @@ fn get_contours(input: Vec<Vec<i16>>) -> Result<PolyLines> {
         return Err(anyhow!("0 length data passed to get_contours"));
     }
 
-    let instant: Instant = Instant::now();
+    // let instant: Instant = Instant::now();
 
     // println!("getting contours");
 
@@ -89,7 +88,7 @@ fn get_contours(input: Vec<Vec<i16>>) -> Result<PolyLines> {
         .collect();
 
 
-    println!("march took {:?} ", instant.elapsed());
+    // println!("march took {:?} ", instant.elapsed());
 
     Ok(out)
 }

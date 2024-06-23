@@ -1,4 +1,3 @@
-use std::time::Instant;
 
 use anyhow::Result;
 use noise::{Fbm, MultiFractal, NoiseFn, Perlin, Simplex};
@@ -30,7 +29,7 @@ pub fn generate_fbm_circle(
     displacement_frequency: f64,
     global_frequency: f32,
 ) -> Result<(UMap8, FMap, FMap)> {
-    let instant: Instant = Instant::now();
+    // let instant: Instant = Instant::now();
     let radius = resolution as f32 * 0.4 * radius as f32;
     let center = (resolution / 2, resolution / 2);
 
@@ -73,7 +72,7 @@ pub fn generate_fbm_circle(
 
     // println!("surface len {}", surface.len());
 
-    println!("fmb_circle took {:?}", instant.elapsed());
+    // println!("fmb_circle took {:?}", instant.elapsed());
 
     Ok((map, altitude_field, depth_field))
 }
